@@ -21,26 +21,18 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSubmit.innerText = 'Memeriksa...';
 
         try {
-            if (typeof supabaseClient === 'undefined') {
-                throw new Error('Supabase client belum terkonfigurasi di config.js');
+            // Simulasi pengecekan login lokal (ubah email & password sesuai kebutuhan)
+            // Contoh akun pegawai: kasir@sabangdor.com / 123456
+            const validEmail = "kasir@sabangdor.com";
+            const validPassword = "123456";
+
+            if (email !== validEmail || password !== validPassword) {
+                throw new Error('Email atau kata sandi salah!');
             }
 
-            const { data, error } = await supabaseClient.auth.signInWithPassword({
-                email: email,
-                password: password
-            });
-
-            if (error || !data.session) {
-                if (errorMessage) {
-                    errorMessage.innerText = 'Email atau kata sandi salah!';
-                    errorMessage.style.display = 'block';
-                } else {
-                    alert('Email atau kata sandi salah!');
-                }
-                btnSubmit.disabled = false;
-                btnSubmit.innerText = 'Masuk';
-                return;
-            }
+            // Simpan status sesi login lokal (opsional)
+            sessionStorage.setItem("sabangdor_logged_in", "true");
+            sessionStorage.setItem("sabangdor_user_email", email);
 
             // Redirect ke dashboard pegawai
             window.location.href = 'penjual-page/dashboard.html';
@@ -50,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (errorMessage) {
                 errorMessage.innerText = err.message || 'Terjadi kesalahan sistem.';
                 errorMessage.style.display = 'block';
+            } else {
+                alert(err.message || 'Terjadi kesalahan sistem.');
             }
             btnSubmit.disabled = false;
             btnSubmit.innerText = 'Masuk';
