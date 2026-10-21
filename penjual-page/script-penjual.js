@@ -1,68 +1,54 @@
+/**
+ * File: penjual-page/dashboard.js (Versi Lokal / Tanpa Supabase)
+ * Deskripsi: Mengelola manajemen stok, verifikasi pembayaran, kitchen display, menu tambahan, dan POS kasir secara offline menggunakan LocalStorage & SessionStorage.
+ */
+
 const QRIS_STORAGE_KEY = "sabangdor_custom_qris";
+const DASHBOARD_KEY = "sabangdor_semua_pesanan";
+const MENU_STATUS_KEY = "sabangdor_menu_status";
+const CUSTOM_MENU_KEY = "sabangdor_custom_menus";
+const DEFAULT_MENU_IMG = "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80";
 
 const masterMenuSabangdor = [
-    { id: 'mentai-cheese', nama: 'Mentai Cheese', harga: 15000, status: 'tersedia', img: 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80' },
-    { id: 'mentai-tanuki', nama: 'Mentai Tanuki', harga: 15000, status: 'tersedia', img: 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80' },
-    { id: 'mentai-ori', nama: 'Mentai Ori', harga: 13000, status: 'tersedia', img: 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80' },
-    { id: 'mentai-mix', nama: 'Mentai Mix', harga: 26000, status: 'tersedia', img: 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80' },
-    { id: 'dimsum-aja', nama: 'Dimsum aja', harga: 26000, status: 'tersedia', img: 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80' },
-    { id: 'bakpao', nama: 'Bakpao', harga: 26000, status: 'tersedia', img: 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80' }
+    { id: 'mentai-cheese', nama: 'Mentai Cheese', harga: 15000, status: 'tersedia', img: DEFAULT_MENU_IMG },
+    { id: 'mentai-tanuki', nama: 'Mentai Tanuki', harga: 15000, status: 'tersedia', img: DEFAULT_MENU_IMG },
+    { id: 'mentai-ori', nama: 'Mentai Ori', harga: 13000, status: 'tersedia', img: DEFAULT_MENU_IMG },
+    { id: 'mentai-mix', nama: 'Mentai Mix', harga: 26000, status: 'tersedia', img: DEFAULT_MENU_IMG },
+    { id: 'dimsum-aja', nama: 'Dimsum aja', harga: 26000, status: 'tersedia', img: DEFAULT_MENU_IMG },
+    { id: 'bakpao', nama: 'Bakpao', harga: 26000, status: 'tersedia', img: DEFAULT_MENU_IMG }
 ];
 
 let currentSec = 'dashboard';
 let activeKanbanFilter = 'proses-masak';
-let pesananSupabase = [];
+let pesananLokal = [];
 
 // ==========================================
-// AUTENTIKASI SUPABASE & INITIALIZATION
+// AUTENTIKASI LOKAL & INITIALIZATION
 // ==========================================
-async function checkAuth() {
-    if (typeof supabaseClient === 'undefined') return;
-
-    try {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (!session) {
-            window.location.href = 'login-pegawai.html';
-        }
-    } catch (err) {
-        console.error("Gagal memeriksa autentikasi:", err);
+function checkAuth() {
+    const isLoggedIn = sessionStorage.getItem("sabangdor_logged_in");
+    if (!isLoggedIn) {
         window.location.href = 'login-pegawai.html';
     }
 }
 
-async function handleLogout() {
-    try {
-        if (typeof supabaseClient !== 'undefined') {
-            await supabaseClient.auth.signOut();
-        }
-        localStorage.removeItem('pegawai_session');
-        window.location.href = 'login-pegawai.html';
-    } catch (err) {
-        console.error('Logout error:', err);
-        window.location.href = 'login-pegawai.html';
-    }
+function handleLogout() {
+    sessionStorage.removeItem("sabangdor_logged_in");
+    sessionStorage.removeItem("sabangdor_user_email");
+    localStorage.removeItem('pegawai_session');
+    window.location.href = 'login-pegawai.html';
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    if (typeof supabaseClient !== 'undefined') {
-        console.log("Supabase URL yang dipakai dashboard:", supabaseClient.supabaseUrl);
-    } else {
-        console.error("supabaseClient tidak ditemukan! Cek file config Supabase.");
-    }
-
+document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
 
-    if (typeof getCustomMenusFromSupabase === 'function') {
-        await getCustomMenusFromSupabase();
-    }
-
-    let savedMenu = JSON.parse(localStorage.getItem('sabangdor_menu_status'));
+    let savedMenu = JSON.parse(localStorage.getItem(MENU_STATUS_KEY));
     if (!savedMenu) {
-        localStorage.setItem('sabangdor_menu_status', JSON.stringify(masterMenuSabangdor));
+        localStorage.setItem(MENU_STATUS_KEY, JSON.stringify(masterMenuSabangdor));
     } else {
         const belumAda = masterMenuSabangdor.filter(m => !savedMenu.some(s => s.id === m.id));
         if (belumAda.length) {
-            localStorage.setItem('sabangdor_menu_status', JSON.stringify(savedMenu.concat(belumAda)));
+            localStorage.setItem(MENU_STATUS_KEY, JSON.stringify(savedMenu.concat(belumAda)));
         }
     }
 
@@ -73,72 +59,73 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 3000);
 });
 
-async function fetchPesananDariSupabase() {
-    if (typeof supabaseClient === 'undefined') return [];
-
+// Helper untuk mengambil custom menu dari localStorage
+function getCustomMenus() {
     try {
-        const { data, error } = await supabaseClient
-            .from('orders')
-            .select(`
-                id_order,
-                nomor_antrean,
-                nama_pembeli,
-                tipe_pembayaran,
-                status_pembayaran,
-                status_pesanan,
-                total_harga,
-                created_at,
-                order_items (
-                    id_detail,
-                    nama_item,
-                    varian,
-                    catatan,
-                    jumlah,
-                    subtotal,
-                    harga_satuan
-                )
-            `)
-            .order('created_at', { ascending: false });
+        return JSON.parse(localStorage.getItem(CUSTOM_MENU_KEY)) || [];
+    } catch {
+        return [];
+    }
+}
 
-        if (error) {
-            console.error("Gagal mengambil data pesanan dari Supabase:", error.message);
-            return [];
-        }
+async function saveCustomMenuToSupabase(menuData) {
+    let customList = getCustomMenus();
+    const idx = customList.findIndex(x => String(x.id) === String(menuData.id));
+    if (idx > -1) {
+        customList[idx] = menuData;
+    } else {
+        customList.push(menuData);
+    }
+    localStorage.setItem(CUSTOM_MENU_KEY, JSON.stringify(customList));
+    return true;
+}
 
-        return data.map(order => {
-            let statusLokal = 'Menunggu Tunai';
-            if (order.status_pembayaran === 'lunas' && order.status_pesanan !== 'selesai') {
-                statusLokal = 'Proses Masak';
-            } else if (order.status_pesanan === 'selesai') {
-                statusLokal = 'Selesai & Disajikan';
+async function deleteCustomMenuFromSupabase(menuId) {
+    let customList = getCustomMenus();
+    const filtered = customList.filter(x => String(x.id) !== String(menuId));
+    localStorage.setItem(CUSTOM_MENU_KEY, JSON.stringify(filtered));
+    return true;
+}
+
+function fetchPesananDariLokal() {
+    try {
+        const data = JSON.parse(localStorage.getItem(DASHBOARD_KEY)) || [];
+        return data.map((order, index) => {
+            let statusLokal = order.status || 'Menunggu Tunai';
+            let statusPembayaranDb = 'pending';
+            let statusPesananDb = 'disiapkan';
+
+            if (statusLokal.toLowerCase().includes('lunas') || statusLokal.toLowerCase().includes('diproses')) {
+                statusPembayaranDb = 'lunas';
+            }
+            if (statusLokal.toLowerCase().includes('selesai')) {
+                statusPesananDb = 'selesai';
             }
 
             return {
-                db_id_order: order.id_order,
-                idOrder: `ANT-${String(order.nomor_antrean).padStart(2, '0')}`,
-                nomorAntrean: order.nomor_antrean,
-                namaPelanggan: order.nama_pembeli,
-                metodeBayar: order.tipe_pembayaran ? order.tipe_pembayaran.toUpperCase() : 'TUNAI',
-                totalHarga: Number(order.total_harga) || 0,
-                totalHargaFormatted: `Rp${(Number(order.total_harga) || 0).toLocaleString('id-ID')}`,
+                db_id_order: order.db_id_order || (index + 1),
+                idOrder: order.idOrder || `ANT-${String(index + 1).padStart(2, '0')}`,
+                nomorAntrean: order.nomorAntrean || (index + 1),
+                namaPelanggan: order.namaPelanggan || 'Pelanggan',
+                metodeBayar: order.metodeBayar ? order.metodeBayar.toUpperCase() : 'TUNAI',
+                totalHarga: Number(order.totalHarga) || 0,
+                totalHargaFormatted: order.totalHargaFormatted || `Rp${(Number(order.totalHarga) || 0).toLocaleString('id-ID')}`,
                 status: statusLokal,
-                statusPembayaranDb: order.status_pembayaran,
-                statusPesananDb: order.status_pesanan,
-                waktu: new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-                tanggal: new Date(order.created_at).toLocaleDateString('id-ID'),
-                items: order.order_items ? order.order_items.map(item => ({
-                    nama: item.nama_item || 'Menu Dimsum',
+                statusPembayaranDb: statusPembayaranDb,
+                statusPesananDb: statusPesananDb,
+                waktu: order.waktu || new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                tanggal: order.tanggal || new Date().toLocaleDateString('id-ID'),
+                items: order.items ? order.items.map(item => ({
+                    nama: item.nama || 'Menu Dimsum',
                     varian: item.varian || '',
                     catatan: item.catatan || '',
-                    qty: item.jumlah,
-                    hargaSatuan: Number(item.harga_satuan) || 0,
-                    totalHargaItem: Number(item.subtotal) || 0
+                    qty: item.qty || 1,
+                    hargaSatuan: Number(item.hargaSatuan) || 0,
+                    totalHargaItem: Number(item.totalHargaItem) || Number(item.subtotal) || 0
                 })) : []
             };
         });
-
-    } catch (err) {
-        console.error("Error Fetching Supabase:", err);
+    } catch {
         return [];
     }
 }
@@ -177,10 +164,10 @@ function navigate(secKey, el) {
 }
 
 async function renderCurrentSection(force = false) {
-    pesananSupabase = await fetchPesananDariSupabase();
+    pesananLokal = fetchPesananDariLokal();
 
-    let semuaPesanan = pesananSupabase;
-    let riwayat = pesananSupabase.filter(p => p.statusPesananDb === 'selesai');
+    let semuaPesanan = pesananLokal;
+    let riwayat = pesananLokal.filter(p => p.statusPesananDb === 'selesai');
 
     let pendingPay = semuaPesanan.filter(p => p.statusPembayaranDb === 'pending').length;
     const badgeEl = document.getElementById('badge-notif-bayar');
@@ -196,12 +183,7 @@ async function renderCurrentSection(force = false) {
     if (currentSec === 'dashboard') renderStokMenu();
     else if (currentSec === 'pembayaran') renderPembayaran(semuaPesanan, force);
     else if (currentSec === 'pantau') renderKitchenDisplay(semuaPesanan, riwayat);
-    else if (currentSec === 'menu') {
-        if (typeof getCustomMenusFromSupabase === 'function') {
-            await getCustomMenusFromSupabase();
-        }
-        renderMenuTambahan();
-    }
+    else if (currentSec === 'menu') renderMenuTambahan();
     else if (currentSec === 'riwayat') renderRiwayat(riwayat);
 }
 
@@ -209,7 +191,7 @@ async function renderCurrentSection(force = false) {
 function renderStokMenu() {
     const grid = document.getElementById('grid-stok-menu');
     if (!grid) return;
-    let menuList = JSON.parse(localStorage.getItem('sabangdor_menu_status')) || masterMenuSabangdor;
+    let menuList = JSON.parse(localStorage.getItem(MENU_STATUS_KEY)) || masterMenuSabangdor;
     let customQrisImg = localStorage.getItem(QRIS_STORAGE_KEY);
 
     let html = `
@@ -236,7 +218,7 @@ function renderStokMenu() {
 
     menuList.forEach((item, index) => {
         const isHabis = item.status === 'habis';
-        const imgUrl = item.img || 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80';
+        const imgUrl = item.img || DEFAULT_MENU_IMG;
 
         html += `
             <div class="stok-card">
@@ -251,8 +233,7 @@ function renderStokMenu() {
         `;
     });
 
-    // Menu tambahan (custom) ikut tampil di daftar stok
-    const customList = typeof getCustomMenus === 'function' ? getCustomMenus() : [];
+    const customList = getCustomMenus();
     customList.forEach(item => {
         const isHabis = !!item.habis;
         const imgUrl = item.img || item.img_url || DEFAULT_MENU_IMG;
@@ -288,27 +269,28 @@ function renderStokMenu() {
 }
 
 function toggleStok(index) {
-    let menuList = JSON.parse(localStorage.getItem('sabangdor_menu_status')) || masterMenuSabangdor;
+    let menuList = JSON.parse(localStorage.getItem(MENU_STATUS_KEY)) || masterMenuSabangdor;
     menuList[index].status = menuList[index].status === 'tersedia' ? 'habis' : 'tersedia';
-    localStorage.setItem('sabangdor_menu_status', JSON.stringify(menuList));
+    localStorage.setItem(MENU_STATUS_KEY, JSON.stringify(menuList));
     renderStokMenu();
 }
 
 async function toggleStokCustom(menuId) {
-    const m = getCustomMenus().find(x => String(x.id) === String(menuId));
+    let customList = getCustomMenus();
+    const m = customList.find(x => String(x.id) === String(menuId));
     if (!m) return;
-    await saveCustomMenuToSupabase({ ...m, habis: !m.habis });
+    m.habis = !m.habis;
+    await saveCustomMenuToSupabase(m);
     renderStokMenu();
 }
 
 function getItemSubtotal(i) {
     if (i.totalHargaItem && !isNaN(i.totalHargaItem) && i.totalHargaItem > 0) return i.totalHargaItem;
     if (i.hargaSatuan && !isNaN(i.hargaSatuan) && i.hargaSatuan > 0) return i.hargaSatuan * (i.qty || 1);
-    if (i.harga && !isNaN(i.harga) && i.harga > 0) return i.harga * (i.qty || 1);
     return 0;
 }
 
-// 2. VERIFIKASI PEMBAYARAN & UPDATE SUPABASE
+// 2. VERIFIKASI PEMBAYARAN LOKAL
 function renderPembayaran(pesananList, force = false) {
     const container = document.getElementById('container-pembayaran');
     if (!container) return;
@@ -403,36 +385,17 @@ function updateInputTunai(idOrder, totalHarga, value) {
 }
 
 async function konfirmasiPembayaran(dbIdOrder) {
-    if (typeof supabaseClient === 'undefined') return;
-
     try {
-        const numericId = parseInt(dbIdOrder, 10);
-
-        const { data, error } = await supabaseClient
-            .from('orders')
-            .update({
-                status_pembayaran: 'lunas',
-                status_pesanan: 'disiapkan'
-            })
-            .eq('id_order', numericId)
-            .select();
-
-        if (error) {
-            console.error("Gagal update status pembayaran:", error);
-            alert("Gagal memperbarui status: " + error.message);
-            return;
+        let semuaPesanan = JSON.parse(localStorage.getItem(DASHBOARD_KEY)) || [];
+        // Update berdasarkan index atau id
+        const order = semuaPesanan.find((p, idx) => (p.db_id_order || (idx + 1)) === Number(dbIdOrder));
+        if (order) {
+            order.status = 'Diproses (Lunas)';
+            localStorage.setItem(DASHBOARD_KEY, JSON.stringify(semuaPesanan));
         }
-
-        if (!data || data.length === 0) {
-            alert("Update tidak mengubah data apa pun. Pastikan Anda sudah menjalankan SQL Policy UPDATE di Supabase Editor.");
-            return;
-        }
-
         await renderCurrentSection(true);
-
     } catch (err) {
-        console.error("Gagal update status pembayaran di Supabase:", err);
-        alert("Terjadi error: " + err.message);
+        console.error("Gagal update status pembayaran lokal:", err);
     }
 }
 
@@ -491,36 +454,16 @@ function renderKitchenDisplay(pesananList, riwayatList) {
 }
 
 async function tandaiSelesaiDapur(dbIdOrder) {
-    if (typeof supabaseClient === 'undefined') return;
-
     try {
-        const numericId = parseInt(dbIdOrder, 10);
-
-        const { data, error } = await supabaseClient
-            .from('orders')
-            .update({
-                status_pembayaran: 'lunas',
-                status_pesanan: 'selesai'
-            })
-            .eq('id_order', numericId)
-            .select();
-
-        if (error) {
-            console.error("Gagal update status selesai:", error);
-            alert("Gagal: " + error.message);
-            return;
+        let semuaPesanan = JSON.parse(localStorage.getItem(DASHBOARD_KEY)) || [];
+        const order = semuaPesanan.find((p, idx) => (p.db_id_order || (idx + 1)) === Number(dbIdOrder));
+        if (order) {
+            order.status = 'Selesai & Disajikan';
+            localStorage.setItem(DASHBOARD_KEY, JSON.stringify(semuaPesanan));
         }
-
-        if (!data || data.length === 0) {
-            alert("Update tidak mengubah data apa pun.");
-            return;
-        }
-
         await renderCurrentSection(true);
-
     } catch (err) {
-        console.error("Gagal update status selesai di Supabase:", err);
-        alert("Terjadi error: " + err.message);
+        console.error("Gagal update status selesai lokal:", err);
     }
 }
 
@@ -588,7 +531,7 @@ function renderRiwayat(riwayatList) {
 
 // 5. CETAK STRUK PRINTER THERMAL (58mm)
 function cetakStrukLangsungById(dbIdOrder) {
-    const order = pesananSupabase.find(p => p.db_id_order === dbIdOrder);
+    const order = pesananLokal.find(p => p.db_id_order === dbIdOrder);
     if (order) {
         cetakStrukLangsung(order);
     }
@@ -688,9 +631,23 @@ function cetakStrukLangsung(order) {
 // ==========================================
 // 6. RENDER MENU TAMBAHAN (SABANGDOR POS)
 // ==========================================
-let mtEditingId = null;   // id menu yang sedang diedit (null = tambah baru)
-let mtFotoData = '';      // foto terpilih (data URL); kosong = pakai gambar default
+let mtEditingId = null;
+let mtFotoData = '';
 let mtMsgTimer = null;
+
+function escHtml(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function rupiah(n) {
+    return "Rp" + Math.round(n).toLocaleString("id-ID");
+}
+
+function hargaMulai(item) {
+    const ukuran = Array.isArray(item.ukuran) ? item.ukuran : [];
+    if (!ukuran.length) return item.harga || 0;
+    return Math.min(...ukuran.map(u => Number(u.harga) || 0));
+}
 
 function mtBarisUkuranHtml(u) {
     u = u || {};
@@ -742,7 +699,6 @@ function mtPilihFoto(input) {
     reader.onload = function (evt) {
         const img = new Image();
         img.onload = function () {
-            // Perkecil supaya muat di database & localStorage
             const maxSide = 600;
             const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
             const canvas = document.createElement('canvas');
@@ -763,10 +719,9 @@ function mtPilihFoto(input) {
 const MT_KATEGORI_BARU = '__kategori_baru__';
 const MT_KATEGORI_BAWAAN = ['Dimsum Mentai', 'Dimsum aja', 'Bakpao'];
 
-// Kategori bawaan + semua kategori yang pernah dipakai menu custom
 function mtDaftarKategori() {
     const hasil = MT_KATEGORI_BAWAAN.slice();
-    (typeof getCustomMenus === 'function' ? getCustomMenus() : []).forEach(m => {
+    getCustomMenus().forEach(m => {
         const k = String(m.kategori || '').trim();
         if (k && !hasil.some(x => x.toLowerCase() === k.toLowerCase())) hasil.push(k);
     });
@@ -785,14 +740,13 @@ function mtOnKategoriChange(fokus) {
     }
 }
 
-// Isi ulang <select> kategori. `pilih` = nilai yang dipilih (kosong = pertahankan pilihan sekarang)
 function mtIsiKategori(pilih) {
     const sel = document.getElementById('mtKategori');
     if (!sel) return;
 
     const daftar = mtDaftarKategori();
     const sig = daftar.join('|');
-    if (pilih === undefined && sel.dataset.sig === sig) return; // tidak ada perubahan
+    if (pilih === undefined && sel.dataset.sig === sig) return;
 
     const sekarang = pilih !== undefined ? pilih : sel.value;
     sel.innerHTML = daftar.map(k => `<option value="${escHtml(k)}">${escHtml(k)}</option>`).join('')
@@ -835,8 +789,6 @@ function renderMenuTambahan() {
     let secEl = document.getElementById('sec-menu');
     if (!secEl) return;
 
-    // Form hanya dibuat SEKALI. Auto-refresh (tiap 3 detik) cuma menyegarkan daftar di bawahnya,
-    // sehingga isian form tidak ikut terhapus.
     if (!document.getElementById('formTambahMenuCustom')) {
         secEl.innerHTML = `
             <div class="card" id="mt-form-card">
@@ -911,15 +863,13 @@ function renderMenuTambahan() {
         `;
     }
 
-    // Pilihan kategori ikut diperbarui (tidak dilakukan saat dropdown sedang dipakai)
     const selKat = document.getElementById('mtKategori');
     if (selKat && document.activeElement !== selKat) mtIsiKategori();
 
-    // Hanya bagian daftar yang di-refresh
     const listEl = document.getElementById('listMenuCustom');
     if (!listEl) return;
 
-    let customList = typeof getCustomMenus === 'function' ? getCustomMenus() : [];
+    let customList = getCustomMenus();
 
     if (customList.length === 0) {
         listEl.innerHTML = `<div class="empty-info" style="margin-top:12px;">Belum ada menu custom tambahan.</div>`;
@@ -997,18 +947,16 @@ async function handleSimpanMenuCustom(e) {
             mtShowMsg('Nama kategori baru wajib diisi.', 'error');
             return;
         }
-        // Kalau namanya sama dengan kategori yang sudah ada (tanpa beda huruf besar/kecil), pakai yang lama
         kategori = mtDaftarKategori().find(k => k.toLowerCase() === baru.toLowerCase()) || baru;
     }
 
-    // Baca baris ukuran / porsi & harga
     const ukuran = [];
     let ukuranError = false;
     document.querySelectorAll('#mtUkuranList .mt-ukuran-row').forEach(row => {
         const uNama = row.querySelector('.mt-u-nama').value.trim();
         const uPorsi = row.querySelector('.mt-u-porsi').value.trim();
         const uHarga = Number(row.querySelector('.mt-u-harga').value) || 0;
-        if (!uNama && !uPorsi && !uHarga) return; // baris kosong diabaikan
+        if (!uNama && !uPorsi && !uHarga) return;
         if (uHarga <= 0) { ukuranError = true; return; }
         ukuran.push({ nama: uNama || 'Reguler', porsi: uPorsi, harga: uHarga });
     });
@@ -1022,7 +970,6 @@ async function handleSimpanMenuCustom(e) {
         return;
     }
 
-    // Baca baris tambahan opsional
     const addon = [];
     document.querySelectorAll('#mtAddonList .mt-addon-row').forEach(row => {
         const aNama = row.querySelector('.mt-a-nama').value.trim();
@@ -1048,16 +995,12 @@ async function handleSimpanMenuCustom(e) {
     if (btn) btn.disabled = true;
 
     try {
-        if (typeof saveCustomMenuToSupabase === 'function') {
-            const ok = await saveCustomMenuToSupabase(menuData);
-            if (ok) {
-                const wasEdit = !!mtEditingId;
-                mtResetForm();
-                mtShowMsg(wasEdit ? 'Perubahan menu berhasil disimpan!' : 'Menu berhasil ditambahkan!', 'ok');
-                renderMenuTambahan();
-            }
-        } else {
-            mtShowMsg('Fungsi saveCustomMenuToSupabase tidak ditemukan.', 'error');
+        const ok = await saveCustomMenuToSupabase(menuData);
+        if (ok) {
+            const wasEdit = !!mtEditingId;
+            mtResetForm();
+            mtShowMsg(wasEdit ? 'Perubahan menu berhasil disimpan!' : 'Menu berhasil ditambahkan!', 'ok');
+            renderMenuTambahan();
         }
     } finally {
         if (btn) btn.disabled = false;
@@ -1067,15 +1010,13 @@ async function handleSimpanMenuCustom(e) {
 async function hapusMenuCustom(menuId) {
     if (!confirm("Apakah Anda yakin ingin menghapus menu ini?")) return;
 
-    if (typeof deleteCustomMenuFromSupabase === 'function') {
-        const ok = await deleteCustomMenuFromSupabase(menuId);
-        if (ok) {
-            if (String(mtEditingId) === String(menuId)) mtResetForm();
-            mtShowMsg('Menu berhasil dihapus.', 'ok');
-            renderMenuTambahan();
-        } else {
-            mtShowMsg('Gagal menghapus menu dari database. Cek policy DELETE di Supabase.', 'error');
-        }
+    const ok = await deleteCustomMenuFromSupabase(menuId);
+    if (ok) {
+        if (String(mtEditingId) === String(menuId)) mtResetForm();
+        mtShowMsg('Menu berhasil dihapus.', 'ok');
+        renderMenuTambahan();
+    } else {
+        mtShowMsg('Gagal menghapus menu dari penyimpanan.', 'error');
     }
 }
 
@@ -1109,13 +1050,12 @@ function updateUIStatusToko() {
     }
 }
 
-// Inisialisasi status tombol saat pertama kali dimuat
 document.addEventListener('DOMContentLoaded', () => {
     updateUIStatusToko();
 });
 
 // ==========================================
-// FITUR INPUT PESANAN MANUAL (POS KASIR INTERAKTIF)
+// FITUR INPUT PESANAN MANUAL (POS KASIR LOKAL)
 // ==========================================
 let kasirCart = [];
 let kasirSelectedMenu = null;
@@ -1142,7 +1082,6 @@ function tutupModalKasirOrder() {
     if (modal) modal.style.display = 'none';
 }
 
-// Daftar master menu lengkap dengan struktur ukuran & addon bawaannya
 const masterMenuStruktur = [
     {
         id: 'mentai-ori', nama: 'Mentai Ori', kategori: 'Dimsum Mentai',
@@ -1203,9 +1142,8 @@ function isiDropdownMenuKasirInteractive() {
     const select = document.getElementById('kasirPilihMenu');
     if (!select) return;
 
-    // Gabungkan master menu + menu custom dari kasir
     let semuaMenu = [...masterMenuStruktur];
-    const customList = typeof getCustomMenus === 'function' ? getCustomMenus() : [];
+    const customList = getCustomMenus();
     
     customList.forEach(c => {
         if (!c.habis) {
@@ -1236,7 +1174,6 @@ function onKasirMenuChange() {
     const ukuranContainer = document.getElementById('kasirUkuranContainer');
     const addonContainer = document.getElementById('kasirAddonContainer');
 
-    // KHUSUS MENU BAKPAO (Pilih Varian & Jumlah per Varian)
     if (kasirSelectedMenu.id === 'bakpao') {
         kasirActiveSize = { nama: 'Paket Bakpao', porsi: 'custom', harga: 0 };
         
@@ -1244,7 +1181,7 @@ function onKasirMenuChange() {
         
         ukuranContainer.innerHTML = `
             <div style="width: 100%; display: flex; flex-direction: column; gap: 6px;">
-                <span style="font-size: 11px; color: var(--text-muted);">Atur jumlah tiap varian bakpao (Otomatis dihitung paket hemat: 1 pcs Rp7rb, 3 pcs Rp20rb, 6 pcs Rp36rb):</span>
+                <span style="font-size: 11px; color: var(--text-muted);">Atur jumlah tiap varian bakpao:</span>
                 <div id="bakpaoVariantList" style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
                     ${varianBakpao.map(v => `
                         <div class="bakpao-var-row" data-varian="${v}" style="display: flex; justify-content: space-between; align-items: center; background: #F8FAFC; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-line);">
@@ -1265,9 +1202,6 @@ function onKasirMenuChange() {
         return;
     }
 
-    // ----------------------------------------------------
-    // UNTUK MENU LAINNYA (Mentai, Dimsum Aja, Custom Menu)
-    // ----------------------------------------------------
     if (kasirSelectedMenu.ukuran && kasirSelectedMenu.ukuran.length > 0) {
         kasirActiveSize = kasirSelectedMenu.ukuran[0];
         ukuranContainer.innerHTML = kasirSelectedMenu.ukuran.map((u, idx) => `
@@ -1281,7 +1215,6 @@ function onKasirMenuChange() {
         ukuranContainer.innerHTML = `<span style="font-size:12px; color:var(--text-muted);">Tidak ada pilihan ukuran.</span>`;
     }
 
-    // Render Tambahan Opsional (Checkbox) untuk menu selain bakpao
     if (kasirSelectedMenu.addon && kasirSelectedMenu.addon.length > 0) {
         kasirActiveAddons = [];
         addonContainer.innerHTML = kasirSelectedMenu.addon.map((a, idx) => `
@@ -1295,7 +1228,6 @@ function onKasirMenuChange() {
     }
 }
 
-// State penampung jumlah bakpao yang dipilih di modal kasir
 let kasirBakpaoQtyMap = { 'Salted Egg': 0, 'Kacang Tanah': 0, 'Ayam Casio': 0, 'Coklat Lumer': 0, 'Keju Susu': 0 };
 
 function ubahQtyBakpaoKasir(varian, delta) {
@@ -1304,7 +1236,6 @@ function ubahQtyBakpaoKasir(varian, delta) {
     if (el) el.innerText = kasirBakpaoQtyMap[varian];
 }
 
-// Algoritma harga paket hemat bakpao (1 pcs: 7rb, 3 pcs: 20rb, 6 pcs: 36rb)
 function hitungHargaBakpaoKasir(totalPcs) {
     const PACKS = [{ pcs: 6, price: 36000 }, { pcs: 3, price: 20000 }, { pcs: 1, price: 7000 }];
     const cost = [0];
@@ -1325,7 +1256,6 @@ function pilihUkuranKasir(namaUkuran) {
     if (!kasirSelectedMenu) return;
     kasirActiveSize = kasirSelectedMenu.ukuran.find(u => u.nama === namaUkuran);
 
-    // Styling aktif pada chip ukuran
     document.querySelectorAll('.size-chip').forEach(btn => {
         if (btn.innerText.includes(namaUkuran)) {
             btn.style.borderColor = 'var(--primary-red)';
@@ -1353,7 +1283,6 @@ function updateKasirAddonSelection() {
 function tambahItemKeKasirCartCustom() {
     if (!kasirSelectedMenu) return;
 
-    // JIKA MENU BAKPAO
     if (kasirSelectedMenu.id === 'bakpao') {
         const pickedVarians = Object.keys(kasirBakpaoQtyMap).filter(v => kasirBakpaoQtyMap[v] > 0);
         const totalPcs = pickedVarians.reduce((sum, v) => sum + kasirBakpaoQtyMap[v], 0);
@@ -1379,7 +1308,6 @@ function tambahItemKeKasirCartCustom() {
             subtotal: subtotalFinal
         });
 
-        // Reset hitungan bakpao
         Object.keys(kasirBakpaoQtyMap).forEach(v => {
             kasirBakpaoQtyMap[v] = 0;
             const el = document.getElementById(`b_qty_${v}`);
@@ -1390,9 +1318,6 @@ function tambahItemKeKasirCartCustom() {
         return;
     }
 
-    // ----------------------------------------------------
-    // UNTUK MENU LAINNYA (Mentai, Dimsum Aja, Custom Menu)
-    // ----------------------------------------------------
     if (!kasirActiveSize) return;
 
     const qty = parseInt(document.getElementById('kasirQtyItem').value, 10) || 1;
@@ -1507,102 +1432,54 @@ async function prosesSimpanPesananKasir() {
     }
 
     const namaPelanggan = namaPelangganInput || `${sumberPesanan}`;
-    let statusPembayaranDb = 'lunas';
-    let statusPesananDb = 'disiapkan';
-    let tipeBayarFinal = 'cash';
+    let statusAwal = 'Diproses (Lunas)';
 
     if (metodeBayar === 'TUNAI') {
-        tipeBayarFinal = 'cash';
         const valTunai = Number(document.getElementById('kasirUangDiterima').value) || 0;
         if (valTunai < totalHarga) {
             msgBox.textContent = 'Nominal pembayaran tunai masih kurang!';
             msgBox.className = 'mt-msg show error';
             return;
         }
-    } else if (metodeBayar === 'QRIS') {
-        tipeBayarFinal = 'qris';
-    } else {
-        tipeBayarFinal = 'online'; // Untuk GoFood/GrabFood/ShopeeFood yang sudah lunas via aplikasi
     }
 
     const btnSimpan = document.getElementById('btnProsesKasirOrder');
     if (btnSimpan) btnSimpan.disabled = true;
 
     try {
-        if (typeof supabaseClient === 'undefined') {
-            alert('Supabase client tidak ditemukan!');
-            return;
-        }
+        let semuaPesanan = JSON.parse(localStorage.getItem(DASHBOARD_KEY)) || [];
+        const nextAntrean = semuaPesanan.length + 1;
+        const newOrderId = Date.now();
 
-        // 1. Ambil Nomor Antrean Terakhir
-        const { data: lastOrder } = await supabaseClient
-            .from('orders')
-            .select('nomor_antrean')
-            .order('id_order', { ascending: false })
-            .limit(1);
+        const pesananBaru = {
+            db_id_order: newOrderId,
+            idOrder: `ANT-${String(nextAntrean).padStart(2, '0')}`,
+            nomorAntrean: nextAntrean,
+            waktu: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+            tanggal: new Date().toLocaleDateString("id-ID"),
+            items: kasirCart.map(i => ({
+                nama: i.namaItemDb,
+                varian: i.varian,
+                catatan: `POS Manual (${sumberPesanan})`,
+                qty: i.qty,
+                hargaSatuan: i.hargaSatuan,
+                totalHargaItem: i.subtotal
+            })),
+            namaPelanggan: `[${sumberPesanan}] ${namaPelanggan}`,
+            metodeBayar: metodeBayar.toUpperCase(),
+            totalHarga: totalHarga,
+            totalHargaFormatted: `Rp${totalHarga.toLocaleString('id-ID')}`,
+            status: statusAwal
+        };
 
-        const nextAntrean = (lastOrder && lastOrder.length > 0) ? (Number(lastOrder[0].nomor_antrean) || 0) + 1 : 1;
-
-        // 2. Simpan ke tabel `orders`
-        const { data: orderData, error: orderErr } = await supabaseClient
-            .from('orders')
-            .insert([{
-                nomor_antrean: nextAntrean,
-                nama_pembeli: `[${sumberPesanan}] ${namaPelanggan}`,
-                tipe_pembayaran: tipeBayarFinal,
-                status_pembayaran: statusPembayaranDb,
-                status_pesanan: statusPesananDb,
-                total_harga: totalHarga
-            }])
-            .select();
-
-        if (orderErr || !orderData || orderData.length === 0) {
-            throw new Error(orderErr ? orderErr.message : 'Gagal menyimpan header order');
-        }
-
-        const newOrderId = orderData[0].id_order;
-
-        // 3. Simpan ke tabel `order_items`
-        const itemsToInsert = kasirCart.map(item => ({
-            id_order: newOrderId,
-            nama_item: item.namaItemDb,
-            varian: item.varian,
-            catatan: `POS Manual (${sumberPesanan})`,
-            jumlah: item.qty,
-            harga_satuan: item.hargaSatuan,
-            subtotal: item.subtotal
-        }));
-
-        const { error: itemsErr } = await supabaseClient
-            .from('order_items')
-            .insert(itemsToInsert);
-
-        if (itemsErr) {
-            throw new Error(itemsErr.message);
-        }
+        semuaPesanan.push(pesananBaru);
+        localStorage.setItem(DASHBOARD_KEY, JSON.stringify(semuaPesanan));
 
         tutupModalKasirOrder();
         await renderCurrentSection(true);
 
-        const createdOrderObj = {
-            db_id_order: newOrderId,
-            idOrder: `ANT-${String(nextAntrean).padStart(2, '0')}`,
-            namaPelanggan: `[${sumberPesanan}] ${namaPelanggan}`,
-            metodeBayar: metodeBayar,
-            totalHarga: totalHarga,
-            totalHargaFormatted: `Rp${totalHarga.toLocaleString('id-ID')}`,
-            waktu: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-            tanggal: new Date().toLocaleDateString('id-ID'),
-            items: kasirCart.map(i => ({
-                nama: i.namaItemDb,
-                varian: i.varian,
-                qty: i.qty,
-                totalHargaItem: i.subtotal
-            }))
-        };
-
         if (confirm("Pesanan berhasil disimpan & dikirim ke Dapur!\nApakah Anda ingin mencetak struk sekarang?")) {
-            cetakStrukLangsung(createdOrderObj);
+            cetakStrukLangsung(pesananBaru);
         }
 
     } catch (err) {
