@@ -24,8 +24,8 @@ from mlxtend.preprocessing import TransactionEncoder
 # 1. KONFIGURASI DEFAULT & KREDENSIAL SUPABASE
 # ==============================================================================
 # Nilai default disesuaikan dengan config.js proyek jika .env tidak didefinisikan.
-DEFAULT_SUPABASE_URL = "https://gtspvslwoauifgurfkpx.supabase.co"
-DEFAULT_SUPABASE_KEY = "sb_publishable_kLlEvARJ8yWYNxU9fjN1uA_7faot8ie"
+DEFAULT_SUPABASE_URL = "URL SUPABASE"
+DEFAULT_SUPABASE_KEY = "PUBLISH KEY"
 
 PAGE_SIZE = 1000
 DEFAULT_MIN_SUPPORT = 0.05
