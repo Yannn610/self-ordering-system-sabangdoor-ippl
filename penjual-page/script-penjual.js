@@ -4,14 +4,10 @@
  */
 
 const QRIS_STORAGE_KEY = "sabangdor_custom_qris";
-<<<<<<< HEAD
-const API_URL = "http://localhost:5000/api";
-=======
 const DASHBOARD_KEY = "sabangdor_semua_pesanan";
 const MENU_STATUS_KEY = "sabangdor_menu_status";
 const CUSTOM_MENU_KEY = "sabangdor_custom_menus";
 const DEFAULT_MENU_IMG = "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80";
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
 
 const masterMenuSabangdor = [
     { id: 'mentai-cheese', nama: 'Mentai Cheese', harga: 15000, status: 'tersedia', img: DEFAULT_MENU_IMG },
@@ -27,44 +23,27 @@ let activeKanbanFilter = 'proses-masak';
 let pesananLokal = [];
 
 // ==========================================
-<<<<<<< HEAD
-// AUTENTIKASI LOKAL
-// ==========================================
-function checkAuth() {
-    const session = localStorage.getItem('pegawai_session');
-    if (!session) {
-        window.location.href = '../login-pegawai.html';
-=======
 // AUTENTIKASI LOKAL & INITIALIZATION
 // ==========================================
 function checkAuth() {
-    const isLoggedIn = sessionStorage.getItem("sabangdor_logged_in");
+    const isLoggedIn = sessionStorage.getItem("sabangdor_logged_in") || localStorage.getItem('pegawai_session');
     if (!isLoggedIn) {
-        window.location.href = 'login-pegawai.html';
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
+        window.location.href = '../login-pegawai.html';
     }
 }
 
 function handleLogout() {
-<<<<<<< HEAD
-    localStorage.removeItem('pegawai_session');
-    window.location.href = '../login-pegawai.html';
-=======
     sessionStorage.removeItem("sabangdor_logged_in");
     sessionStorage.removeItem("sabangdor_user_email");
     localStorage.removeItem('pegawai_session');
-    window.location.href = 'login-pegawai.html';
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
+    window.location.href = '../login-pegawai.html';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
+    updateUIStatusToko();
 
-<<<<<<< HEAD
-    let savedMenu = JSON.parse(localStorage.getItem('sabangdor_menu_status'));
-=======
     let savedMenu = JSON.parse(localStorage.getItem(MENU_STATUS_KEY));
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
     if (!savedMenu) {
         localStorage.setItem(MENU_STATUS_KEY, JSON.stringify(masterMenuSabangdor));
     } else {
@@ -74,27 +53,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    navigate('dashboard', document.querySelectorAll('.tab-item')[0]);
+    const firstTab = document.querySelectorAll('.tab-item')[0];
+    navigate('dashboard', firstTab);
 
-<<<<<<< HEAD
-    // Interval rutin 3 detik untuk fetch data pesanan dari Express.js
-=======
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
     setInterval(() => {
         checkAndRenderAuto();
     }, 3000);
 });
 
-<<<<<<< HEAD
-// ==========================================
-// FETCH PESANAN DARI BACKEND LOKAL
-// ==========================================
-async function fetchPesananDariBackend() {
-    try {
-        const response = await fetch(`${API_URL}/orders`);
-        if (!response.ok) throw new Error('Gagal mengambil data pesanan');
-        const data = await response.json();
-=======
 // Helper untuk mengambil custom menu dari localStorage
 function getCustomMenus() {
     try {
@@ -115,7 +81,6 @@ async function saveCustomMenuToSupabase(menuData) {
     localStorage.setItem(CUSTOM_MENU_KEY, JSON.stringify(customList));
     return true;
 }
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
 
 async function deleteCustomMenuFromSupabase(menuId) {
     let customList = getCustomMenus();
@@ -162,12 +127,7 @@ function fetchPesananDariLokal() {
                 })) : []
             };
         });
-<<<<<<< HEAD
-    } catch (err) {
-        console.error("Error Fetching Backend:", err);
-=======
     } catch {
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
         return [];
     }
 }
@@ -198,19 +158,17 @@ function navigate(secKey, el) {
     };
 
     if (titleMap[secKey]) {
-        document.getElementById('page-title').innerText = titleMap[secKey].t;
-        document.getElementById('page-subtitle').innerText = titleMap[secKey].s;
+        const titleEl = document.getElementById('page-title');
+        const subEl = document.getElementById('page-subtitle');
+        if (titleEl) titleEl.innerText = titleMap[secKey].t;
+        if (subEl) subEl.innerText = titleMap[secKey].s;
     }
 
     renderCurrentSection(true);
 }
 
 async function renderCurrentSection(force = false) {
-<<<<<<< HEAD
-    pesananLokal = await fetchPesananDariBackend();
-=======
     pesananLokal = fetchPesananDariLokal();
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
 
     let semuaPesanan = pesananLokal;
     let riwayat = pesananLokal.filter(p => p.statusPesananDb === 'selesai');
@@ -229,11 +187,7 @@ async function renderCurrentSection(force = false) {
     if (currentSec === 'dashboard') renderStokMenu();
     else if (currentSec === 'pembayaran') renderPembayaran(semuaPesanan, force);
     else if (currentSec === 'pantau') renderKitchenDisplay(semuaPesanan, riwayat);
-<<<<<<< HEAD
-    else if (currentSec === 'menu') { if (force) renderMenuTambahan(); }
-=======
     else if (currentSec === 'menu') renderMenuTambahan();
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
     else if (currentSec === 'riwayat') renderRiwayat(riwayat);
 }
 
@@ -340,11 +294,7 @@ function getItemSubtotal(i) {
     return 0;
 }
 
-<<<<<<< HEAD
-// 2. VERIFIKASI PEMBAYARAN
-=======
 // 2. VERIFIKASI PEMBAYARAN LOKAL
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
 function renderPembayaran(pesananList, force = false) {
     const container = document.getElementById('container-pembayaran');
     if (!container) return;
@@ -394,21 +344,7 @@ function renderPembayaran(pesananList, force = false) {
 
 async function konfirmasiPembayaran(dbIdOrder) {
     try {
-<<<<<<< HEAD
-        const response = await fetch(`${API_URL}/orders/${dbIdOrder}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status_pembayaran: 'lunas', status_pesanan: 'disiapkan' })
-        });
-
-        if (!response.ok) throw new Error('Gagal memperbarui status pembayaran');
-        await renderCurrentSection(true);
-    } catch (err) {
-        console.error("Error Konfirmasi Pembayaran:", err);
-        alert("Terjadi error: " + err.message);
-=======
         let semuaPesanan = JSON.parse(localStorage.getItem(DASHBOARD_KEY)) || [];
-        // Update berdasarkan index atau id
         const order = semuaPesanan.find((p, idx) => (p.db_id_order || (idx + 1)) === Number(dbIdOrder));
         if (order) {
             order.status = 'Diproses (Lunas)';
@@ -417,7 +353,6 @@ async function konfirmasiPembayaran(dbIdOrder) {
         await renderCurrentSection(true);
     } catch (err) {
         console.error("Gagal update status pembayaran lokal:", err);
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
     }
 }
 
@@ -473,19 +408,6 @@ function renderKitchenDisplay(pesananList, riwayatList) {
 
 async function tandaiSelesaiDapur(dbIdOrder) {
     try {
-<<<<<<< HEAD
-        const response = await fetch(`${API_URL}/orders/${dbIdOrder}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status_pembayaran: 'lunas', status_pesanan: 'selesai' })
-        });
-
-        if (!response.ok) throw new Error('Gagal memperbarui status selesai');
-        await renderCurrentSection(true);
-    } catch (err) {
-        console.error("Error Dapur Selesai:", err);
-        alert("Terjadi error: " + err.message);
-=======
         let semuaPesanan = JSON.parse(localStorage.getItem(DASHBOARD_KEY)) || [];
         const order = semuaPesanan.find((p, idx) => (p.db_id_order || (idx + 1)) === Number(dbIdOrder));
         if (order) {
@@ -495,7 +417,6 @@ async function tandaiSelesaiDapur(dbIdOrder) {
         await renderCurrentSection(true);
     } catch (err) {
         console.error("Gagal update status selesai lokal:", err);
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
     }
 }
 
@@ -564,13 +485,9 @@ function renderRiwayat(riwayatList) {
 // 5. CETAK STRUK
 function cetakStrukLangsungById(dbIdOrder) {
     const order = pesananLokal.find(p => p.db_id_order === dbIdOrder);
-<<<<<<< HEAD
-    if (order) cetakStrukLangsung(order);
-=======
     if (order) {
         cetakStrukLangsung(order);
     }
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
 }
 
 function cetakStrukLangsung(order) {
@@ -590,18 +507,6 @@ function cetakStrukLangsung(order) {
     printWindow.document.write(`
         <!DOCTYPE html>
         <html>
-<<<<<<< HEAD
-        <head><meta charset="utf-8"><title>Struk #${order.idOrder}</title></head>
-        <body style="font-family:monospace; width:48mm; font-size:11px;">
-            <div style="text-align:center;"><strong>SABANGDOR</strong><br><span>Outlet Ambil Sendiri</span></div>
-            <hr>
-            <div>No: #${order.idOrder}<br>Nama: ${order.namaPelanggan}<br>Bayar: ${order.metodeBayar}</div>
-            <hr>
-            <table style="width:100%;"><tbody>${itemsHtml}</tbody></table>
-            <hr>
-            <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${order.totalHargaFormatted}</span></div>
-            <script>window.onload = function() { window.print(); setTimeout(window.close, 500); }</script>
-=======
         <head>
             <meta charset="utf-8">
             <title>Struk #${order.idOrder}</title>
@@ -663,20 +568,12 @@ function cetakStrukLangsung(order) {
                     setTimeout(function() { window.close(); }, 500);
                 };
             </script>
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
         </body>
         </html>
     `);
     printWindow.document.close();
 }
 
-<<<<<<< HEAD
-// 6. MENU TAMBAHAN
-function renderMenuTambahan() {
-    // Fungsi render menu tambahan berjalan secara lokal/backend
-    console.log("Render Menu Tambahan siap.");
-} //zero
-=======
 // ==========================================
 // 6. RENDER MENU TAMBAHAN (SABANGDOR POS)
 // ==========================================
@@ -1099,10 +996,6 @@ function updateUIStatusToko() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    updateUIStatusToko();
-});
-
 // ==========================================
 // FITUR INPUT PESANAN MANUAL (POS KASIR LOKAL)
 // ==========================================
@@ -1113,10 +1006,15 @@ let kasirActiveAddons = [];
 
 function bukaModalKasirOrder() {
     kasirCart = [];
-    document.getElementById('kasirNamaPelanggan').value = '';
-    document.getElementById('kasirUangDiterima').value = '';
-    document.getElementById('kasirKembalianTxt').style.display = 'none';
-    document.getElementById('kasirMsg').className = 'mt-msg';
+    const namaInp = document.getElementById('kasirNamaPelanggan');
+    const uangInp = document.getElementById('kasirUangDiterima');
+    const kembalianTxt = document.getElementById('kasirKembalianTxt');
+    const msgEl = document.getElementById('kasirMsg');
+
+    if (namaInp) namaInp.value = '';
+    if (uangInp) uangInp.value = '';
+    if (kembalianTxt) kembalianTxt.style.display = 'none';
+    if (msgEl) msgEl.className = 'mt-msg';
     
     isiDropdownMenuKasirInteractive();
     renderKasirCartList();
@@ -1256,7 +1154,7 @@ function onKasirMenuChange() {
         ukuranContainer.innerHTML = kasirSelectedMenu.ukuran.map((u, idx) => `
             <button type="button" class="btn-outline-merchant size-chip ${idx === 0 ? 'active-chip' : ''}" 
                 onclick="pilihUkuranKasir('${u.nama}')" style="flex: 1; padding: 8px; font-size: 0.8rem;">
-                <b>${u.nama}</b><br><small>${u.porsi || ''} - Rp${Number(u.harga).toLocaleString('id-ID')}</small>
+                <b>${u.nama}</b><br><small>${u.porsi || ''} Rp${Number(u.harga).toLocaleString('id-ID')}</small>
             </button>
         `).join('');
     } else {
@@ -1539,4 +1437,3 @@ async function prosesSimpanPesananKasir() {
         if (btnSimpan) btnSimpan.disabled = false;
     }
 }
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb

@@ -1,11 +1,26 @@
 // ==========================================
+// HELPER GLOBAL (Mencegah ReferenceError)
+// ==========================================
+function escHtml(str) {
+    if (typeof str !== 'string') return str || '';
+    return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+function rupiah(num) {
+    return 'Rp' + Number(num || 0).toLocaleString('id-ID');
+}
+
+const DEFAULT_MENU_IMG = typeof window.DEFAULT_MENU_IMG !== 'undefined' 
+    ? window.DEFAULT_MENU_IMG 
+    : 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80';
+
+// ==========================================
 // MENU TAMBAHAN: isi halaman detail dibuat otomatis dari data kasir
 // Hanya aktif di detail-menu-custom.html?id=... (butuh menu-custom-store.js).
-// Harus di paling atas agar markup sudah ada sebelum logika harga di bawah berjalan.
 // ==========================================
 (function () {
     const body = document.getElementById('content-body');
-    if (!body || typeof getCustomMenus !== 'function') return; // bukan halaman detail menu tambahan
+    if (!body || typeof getCustomMenus !== 'function') return;
     const id = new URLSearchParams(window.location.search).get('id');
     const menu = getCustomMenus().find(m => m.id === id);
 
@@ -118,7 +133,6 @@
 })();
 
 document.addEventListener('DOMContentLoaded', function () {
-    // 1. Ambil semua elemen HTML yang dibutuhkan
     const sizeBoxes = document.querySelectorAll('.size-box');
     const minusBtn = document.querySelector('.qty-btn.minus');
     const plusBtn = document.querySelector('.qty-btn.plus');
@@ -129,25 +143,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const qtyPcsInfoEl = document.querySelector('.qty-pcs-info');
     const checkboxes = document.querySelectorAll('.checkbox-custom');
 
-    // Variable State
     let currentQty = 1;
     let basePrice = 0;
     let currentPcsText = '6 pcs';
 
-    // Helper: Mengubah string Rupiah (contoh "Rp18.000") menjadi angka integer (18000)
     function parseRupiah(text) {
         if (!text) return 0;
         return parseInt(text.replace(/[^0-9]/g, ''), 10) || 0;
     }
 
-    // Helper: Mengubah angka integer (18000) menjadi format Rupiah ("Rp18.000")
     function formatRupiah(number) {
         return 'Rp' + number.toLocaleString('id-ID');
     }
 
-    // Fungsi Utama: Menghitung ulang seluruh total harga & tampilan teks
     function updateCalculations() {
-        // A. Hitung total harga tambahan opsional (Checkbox)
         let addonTotal = 0;
         checkboxes.forEach(cb => {
             if (cb.checked) {
@@ -159,25 +168,19 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // B. Hitung harga per 1 porsi (Harga Dasar Porsi + Addon)
         const pricePerUnit = basePrice + addonTotal;
-
-        // C. Hitung Total Keseluruhan (Harga per Porsi x Jumlah Porsi)
         const grandTotal = pricePerUnit * currentQty;
 
-        // D. Update Teks Tampilan Jumlah Porsi
         if (qtyValueEl) {
             qtyValueEl.innerText = `${currentQty} porsi`;
         }
 
-        // E. Update Tabel Rincian Harga
         if (priceRowSpans.length >= 4) {
-            priceRowSpans[1].innerText = formatRupiah(pricePerUnit); // Harga porsi (+ addon jika ada)
-            priceRowSpans[2].innerText = `Subtotal × ${currentQty} porsi`; // Teks Subtotal
-            priceRowSpans[3].innerText = formatRupiah(grandTotal); // Total Subtotal
+            priceRowSpans[1].innerText = formatRupiah(pricePerUnit);
+            priceRowSpans[2].innerText = `Subtotal × ${currentQty} porsi`;
+            priceRowSpans[3].innerText = formatRupiah(grandTotal);
         }
 
-        // F. Update Teks Sticky Footer
         if (totalPriceEl) {
             totalPriceEl.innerText = formatRupiah(grandTotal);
         }
@@ -189,9 +192,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Fungsi untuk inisialisasi data dari porsi yang sedang aktif (.active)
     function initActiveSize() {
-        if (sizeBoxes.length === 0) return; // Lewati jika tidak ada elemen size-box (seperti di halaman Bakpao)
+        if (sizeBoxes.length === 0) return;
 
         const activeBox = document.querySelector('.size-box.active') || sizeBoxes[0];
         if (activeBox) {
@@ -202,9 +204,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // --- EVENT LISTENERS ---
-
-    // 2. Event Listener: Klik Opsi Ukuran Porsi (S, M, XL)
     sizeBoxes.forEach(box => {
         box.addEventListener('click', function () {
             sizeBoxes.forEach(b => b.classList.remove('active'));
@@ -219,7 +218,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // 3. Event Listener: Tombol Plus (Increment)
     if (plusBtn) {
         plusBtn.addEventListener('click', function () {
             currentQty++;
@@ -227,39 +225,31 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 4. Event Listener: Tombol Minus (Decrement)
     if (minusBtn) {
         minusBtn.addEventListener('click', function () {
-            if (currentQty > 1) { // Batas minimal 1 porsi
+            if (currentQty > 1) {
                 currentQty--;
                 updateCalculations();
             }
         });
     }
 
-    // 5. Event Listener: Checkbox Tambahan Opsional
     checkboxes.forEach(cb => {
         cb.addEventListener('change', function () {
             updateCalculations();
         });
     });
 
-    // Jalankan kalkulasi pertama kali saat halaman di-load
     initActiveSize();
     updateCalculations();
 
     const cartBtn = document.querySelector('.cart-btn');
     if (cartBtn) {
         cartBtn.addEventListener('click', function () {
-<<<<<<< HEAD
-            const namaProduk = document.querySelector('.product-info h2').innerText;
-=======
             const productTitleEl = document.querySelector('.product-info h2');
             if (!productTitleEl) return;
             const namaProduk = productTitleEl.innerText;
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
 
-            // --- AMBIL LINK GAMBAR DARI HALAMAN DETAIL ---
             const productImageEl = document.querySelector('.product-banner img');
             const produkImgSrc = productImageEl ? productImageEl.src : '';
 
@@ -297,7 +287,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 qty: jumlahPorsi,
                 harga: hargaAngka,
                 hargaFormatted: totalHargaText,
-                imgSrc: produkImgSrc // Menyimpan link gambar
+                imgSrc: produkImgSrc
             };
 
             let keranjang = JSON.parse(localStorage.getItem('sabangdor_cart')) || [];
@@ -314,9 +304,8 @@ document.addEventListener('DOMContentLoaded', function () {
 // LOGIKA PAKET BAKPAO
 document.addEventListener('DOMContentLoaded', function () {
     const variantItems = document.querySelectorAll('.variant-item');
-    if (variantItems.length === 0) return; // Jika bukan halaman bakpao, lewati
+    if (variantItems.length === 0) return;
 
-    // Harga paket (sesuai menu): pcs -> harga
     const PACKS = [
         { pcs: 6, price: 36000 },
         { pcs: 3, price: 20000 },
@@ -329,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const footerMetaEl = document.getElementById('footer-meta-text');
     const cartBtn = document.querySelector('.cart-btn');
 
-    if (!cartBtn) return; // Jika bukan halaman bakpao, abaikan
+    if (!cartBtn) return;
 
     const qty = {};
     variantItems.forEach(item => { qty[item.dataset.name] = 0; });
@@ -338,7 +327,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return 'Rp' + n.toLocaleString('id-ID');
     }
 
-    // Hitung kombinasi paket termurah untuk n pcs (DP)
     function bestPrice(n) {
         const cost = [0];
         const choice = [null];
@@ -391,7 +379,8 @@ document.addEventListener('DOMContentLoaded', function () {
         let html = '';
         PACKS.forEach(p => {
             if (used[p.pcs]) {
-                html += `<div class="price-row"><span>Paket ${p.pcs} pcs × ${used[p.pcs]}</span><span>${formatRupiah(p.price * used[p.pcs])}</span></div>`;
+                const totalPackPrice = p.price * used[p.pcs];
+                html += `<div class="price-row"><span>Paket ${p.pcs} pcs × ${used[p.pcs]}</span><span>${formatRupiah(totalPackPrice)}</span></div>`;
             }
         });
         if (breakdownEl) breakdownEl.innerHTML = html;
@@ -445,7 +434,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 imgSrc: imgEl ? imgEl.src : ''
             };
 
-            const keranjang = JSON.parse(localStorage.getItem('sabangdor_cart')) || [];
+            let keranjang = JSON.parse(localStorage.getItem('sabangdor_cart')) || [];
             keranjang.push(itemBaru);
             localStorage.setItem('sabangdor_cart', JSON.stringify(keranjang));
             localStorage.setItem('buka_popup_keranjang', 'true');
@@ -472,4 +461,4 @@ document.addEventListener('DOMContentLoaded', function () {
             window.location.href = 'index.html';
         }
     });
-});//zero
+});
