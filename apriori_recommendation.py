@@ -23,9 +23,9 @@ from mlxtend.preprocessing import TransactionEncoder
 # ==============================================================================
 # 1. KONFIGURASI DEFAULT & KREDENSIAL SUPABASE
 # ==============================================================================
-# Nilai default disesuaikan dengan config.js proyek jika .env tidak didefinisikan.
-DEFAULT_SUPABASE_URL = "URL SUPABASE"
-DEFAULT_SUPABASE_KEY = "PUBLISH KEY"
+# Nilai default disesuaikan dengan kredensial aktif proyek jika .env tidak didefinisikan.
+DEFAULT_SUPABASE_URL = "https://gtspvslwoauifgurfkpx.supabase.co"
+DEFAULT_SUPABASE_KEY = "sb_publishable_kLlEvARJ8yWYNxU9fjN1uA_7faot8ie"
 
 PAGE_SIZE = 1000
 DEFAULT_MIN_SUPPORT = 0.05
@@ -498,7 +498,7 @@ def get_popular_recommendations(frequent_itemsets: pd.DataFrame, top_n: int = DE
 
 
 # ==============================================================================
-# 6. EXPORT UNTUK FRONTEND (script-menu-utama.js / JSON)
+# 6. EXPORT UNTUK FRONTEND (script-menu-utama.js / JSON / JS)
 # ==============================================================================
 def export_recommendations_to_json(
     items: List[Dict[str, Any]],
@@ -507,11 +507,103 @@ def export_recommendations_to_json(
     """Simpan hasil rekomendasi ke file JSON agar dapat dimuat oleh aplikasi web."""
     with open(output_filepath, "w", encoding="utf-8") as f:
         json.dump(items, f, ensure_ascii=False, indent=2)
+
+    # Simpan juga versi JavaScript agar bisa langsung dibaca frontend secara offline
+    js_filepath = "rekomendasi_data.js"
+    with open(js_filepath, "w", encoding="utf-8") as f:
+        f.write("/** Data Rekomendasi Menu AI (Apriori) Sabangdor */\n")
+        f.write(f"window.MENU_REKOMENDASI_DEFAULT = {json.dumps(items, ensure_ascii=False, indent=2)};\n")
+
     return output_filepath
 
 
 # ==============================================================================
-# 7. TITIK MASUK UTAMA (CLI & TESTING)
+# 7. SERVER API LOKAL UNTUK INTEGRASI WEB REALTIME (CORS ENABLED)
+# ==============================================================================
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
+
+
+class RecommendationAPIHandler(BaseHTTPRequestHandler):
+    frequent_itemsets: Optional[pd.DataFrame] = None
+    rules: Optional[pd.DataFrame] = None
+
+    def _set_cors_headers(self, status: int = 200):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.end_headers()
+
+    def do_OPTIONS(self):
+        self._set_cors_headers(200)
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        params = parse_qs(parsed.query)
+
+        # 1. Endpoint Rekomendasi Populer (Untuk Bagian Paling Rekomendasi di index.html)
+        if path in ("/api/recommendations", "/api/popular"):
+            top_n = int(params.get("top_n", [DEFAULT_TOP_N])[0])
+            items = get_popular_recommendations(self.frequent_itemsets, top_n=top_n)
+            self._set_cors_headers(200)
+            self.wfile.write(json.dumps(items, ensure_ascii=False).encode("utf-8"))
+
+        # 2. Endpoint Rekomendasi Berdasarkan Isi Keranjang (Cross-selling)
+        elif path == "/api/recommend":
+            raw_cart = params.get("cart", [""])[0]
+            top_n = int(params.get("top_n", [DEFAULT_TOP_N])[0])
+            cart_items = [c.strip() for c in raw_cart.split(",") if c.strip()]
+            items = recommend(
+                self.rules,
+                cart_items,
+                top_n=top_n,
+                frequent_itemsets=self.frequent_itemsets
+            )
+            self._set_cors_headers(200)
+            self.wfile.write(json.dumps(items, ensure_ascii=False).encode("utf-8"))
+
+        else:
+            self._set_cors_headers(404)
+            self.wfile.write(json.dumps({"error": "Endpoint tidak ditemukan"}).encode("utf-8"))
+
+    def log_message(self, format, *args):
+        # Ringkas tampilan log request di terminal
+        print(f"[API Server] {self.address_string()} - {format % args}")
+
+
+def run_server(
+    frequent_itemsets: pd.DataFrame,
+    rules: pd.DataFrame,
+    host: str = "127.0.0.1",
+    port: int = 5000
+):
+    """Menjalankan HTTP API server lokal agar web dapat mengambil rekomendasi Apriori."""
+    RecommendationAPIHandler.frequent_itemsets = frequent_itemsets
+    RecommendationAPIHandler.rules = rules
+    server = HTTPServer((host, port), RecommendationAPIHandler)
+
+    print("\n" + "=" * 60)
+    print("  SERVER API REKOMENDASI APRIORI AKTIF!")
+    print("=" * 60)
+    print(f"  URL Base : http://{host}:{port}")
+    print(f"  - Rekomendasi Populer  : http://{host}:{port}/api/recommendations")
+    print(f"  - Rekomendasi Keranjang: http://{host}:{port}/api/recommend?cart=Mentai+Ori")
+    print("\n  Halaman web (index.html) akan langsung mengambil rekomendasi dari server ini.")
+    print("  Tekan Ctrl+C untuk menghentikan server.")
+    print("=" * 60 + "\n")
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n[Server] Server rekomendasi dimatikan.")
+        server.server_close()
+
+
+# ==============================================================================
+# 8. TITIK MASUK UTAMA (CLI, EKSPOR & SERVER)
 # ==============================================================================
 def main():
     load_dotenv()
@@ -530,9 +622,16 @@ def main():
         help="Jumlah rekomendasi maksimal yang ditampilkan (default: 5)"
     )
     parser.add_argument(
-        "--export",
+        "--serve",
+        "-s",
         action="store_true",
-        help="Ekspor hasil rekomendasi populer ke rekomendasi_menu.json"
+        help="Jalankan sebagai HTTP API server lokal agar web dapat memuat rekomendasi secara real-time"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=5000,
+        help="Port server API (default: 5000)"
     )
     args = parser.parse_args()
 
@@ -595,12 +694,16 @@ def main():
     for idx, item in enumerate(popular_menu, 1):
         print(f"{idx}. {item['nama']} ({item['variantInfo']}) - {item['hargaFormatted']}")
 
-    # 5. Ekspor Hasil jika diminta melalui argumen --export
-    if args.export:
-        exported_file = export_recommendations_to_json(popular_menu, "rekomendasi_menu.json")
-        print(f"\n[OK] Hasil rekomendasi populer telah diekspor ke: {exported_file}")
+    # 5. Otomatis Ekspor Data Rekomendasi ke File Web
+    exported_file = export_recommendations_to_json(popular_menu, "rekomendasi_menu.json")
+    print(f"\n[OK] Hasil rekomendasi telah disinkronkan ke file web: {exported_file} & rekomendasi_data.js")
     print("=" * 60)
+
+    # 6. Jalankan Server jika opsi --serve diaktifkan
+    if args.serve:
+        run_server(frequent_itemsets, rules, port=args.port)
 
 
 if __name__ == "__main__":
     main()
+
