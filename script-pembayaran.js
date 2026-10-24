@@ -130,7 +130,7 @@ function render() {
                 ${state.items.map(i => `
                     <div class="order-item-row" style="padding:10px 0; border-bottom:1px dashed #E2E8F0;">
                         <div style="display:flex; flex-direction:column; gap:2px;">
-                            <span><b>${i.nama}</b>${i.varian ? `(${i.varian})` : ''} &times; ${i.qty}</span>${i.catatan ? `<small style="color:#E11D48; font-weight:600; font-size:11px;">Catatan: "${i.catatan}"</small>` : ''}
+                            <span><b>${i.nama}</b>${i.varian ? ` (${i.varian})` : ''} &times; ${i.qty}</span>${i.catatan ? `<small style="color:#E11D48; font-weight:600; font-size:11px;">Catatan: "${i.catatan}"</small>` : ''}
                         </div>
                         <b>${formatRupiah(i.totalHargaItem)}</b>
                     </div>
@@ -160,27 +160,30 @@ function render() {
             });
         });
 
-        document.getElementById("btnSubmitCheckout").addEventListener("click", () => {
-            const namaVal = document.getElementById("inputNama").value.trim();
-            const errEl = document.getElementById("errorMsg");
+        const btnCheckout = document.getElementById("btnSubmitCheckout");
+        if (btnCheckout) {
+            btnCheckout.addEventListener("click", () => {
+                const namaVal = document.getElementById("inputNama").value.trim();
+                const errEl = document.getElementById("errorMsg");
 
-            if (state.items.length === 0) {
-                errEl.style.display = "block";
-                errEl.textContent = "Keranjang kamu masih kosong!";
-                return;
-            }
-            if (!namaVal) {
-                errEl.style.display = "block";
-                errEl.textContent = "Mohon ketik nama kamu terlebih dahulu.";
-                document.getElementById("inputNama").focus();
-                return;
-            }
+                if (state.items.length === 0) {
+                    errEl.style.display = "block";
+                    errEl.textContent = "Keranjang kamu masih kosong!";
+                    return;
+                }
+                if (!namaVal) {
+                    errEl.style.display = "block";
+                    errEl.textContent = "Mohon ketik nama kamu terlebih dahulu.";
+                    document.getElementById("inputNama").focus();
+                    return;
+                }
 
-            state.nama = namaVal;
-            state.step = state.metode === "qris" ? "qris" : "tunai";
-            saveOrderState(state);
-            render();
-        });
+                state.nama = namaVal;
+                state.step = state.metode === "qris" ? "qris" : "tunai";
+                saveOrderState(state);
+                render();
+            });
+        }
     }
 
     // 2. TAHAP PEMBAYARAN QRIS
@@ -190,14 +193,14 @@ function render() {
 
         const customQrisImg = localStorage.getItem(QRIS_STORAGE_KEY);
         const qrisDisplayHtml = customQrisImg
-            ? `<img src="${customQrisImg}" alt="QRIS Toko" class="qris-img-display">`
+            ? `<img src="${customQrisImg}" alt="QRIS Toko" class="qris-img-display" style="max-width:200px; border-radius:12px; margin:12px auto; display:block;">`
             : `<div style="width:160px; height:160px; margin:12px auto; background: repeating-conic-gradient(#111 0 25%, #fff 0 50%) 0 0/12px 12px; border: 4px solid #111; border-radius:12px;"></div>`;
 
         main.innerHTML = `
             <section class="card" style="text-align:center;">
                 <span class="badge badge--amber">Menunggu Pembayaran QRIS</span>
                 <h2 style="margin-top:8px;">Pindai QR Kode Di Bawah</h2>
-                <p style="color:var(--primary-red); font-size:22px; font-weight:800; margin-top:4px;">${formatRupiah(total)}</p>
+                <p style="color:var(--primary-red, #E11D48); font-size:22px; font-weight:800; margin-top:4px;">${formatRupiah(total)}</p>
                 
                 ${qrisDisplayHtml}
 
@@ -206,16 +209,16 @@ function render() {
 
             <section class="card">
                 <h2>Rincian Transaksi</h2>
-                <div class="order-item-row"><span>Nomor Pesanan</span><b>${state.orderId}</b></div>
-                <div class="order-item-row"><span>Atas Nama</span><b>${state.nama}</b></div>
-                <div class="order-item-row"><span>Metode</span><b>QRIS</b></div>
+                <div class="order-item-row" style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>Nomor Pesanan</span><b>${state.orderId}</b></div>
+                <div class="order-item-row" style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>Atas Nama</span><b>${state.nama}</b></div>
+                <div class="order-item-row" style="display:flex; justify-content:space-between;"><span>Metode</span><b>QRIS</b></div>
             </section>
         `;
 
         footer.innerHTML = `
             <div class="footer-total"><span>Total</span><b>${formatRupiah(total)}</b></div>
             <button class="btn btn--primary" id="btnSelesaiQris">Saya Sudah Membayar (Kirim ke Kasir)</button>
-            <button class="btn btn--secondary" id="btnBackCheckout">Kembali ke Checkout</button>
+            <button class="btn btn--secondary" id="btnBackCheckout" style="margin-top:8px;">Kembali ke Checkout</button>
         `;
 
         document.getElementById("btnSelesaiQris").addEventListener("click", () => {
@@ -250,16 +253,16 @@ function render() {
 
             <section class="card">
                 <h2>Rincian Pesanan</h2>
-                <div class="order-item-row"><span>Nomor Pesanan</span><b>${state.orderId}</b></div>
-                <div class="order-item-row"><span>Atas Nama</span><b>${state.nama}</b></div>
-                <div class="order-item-row"><span>Total Tagihan</span><b style="color:var(--primary-red); font-size:15px;">${formatRupiah(total)}</b></div>
+                <div class="order-item-row" style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>Nomor Pesanan</span><b>${state.orderId}</b></div>
+                <div class="order-item-row" style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>Atas Nama</span><b>${state.nama}</b></div>
+                <div class="order-item-row" style="display:flex; justify-content:space-between;"><span>Total Tagihan</span><b style="color:var(--primary-red, #E11D48); font-size:15px;">${formatRupiah(total)}</b></div>
             </section>
         `;
 
         footer.innerHTML = `
             <div class="footer-total"><span>Total</span><b>${formatRupiah(total)}</b></div>
             <button class="btn btn--primary" id="btnKonfirmasiTunai">Konfirmasi Pesanan Tunai</button>
-            <button class="btn btn--secondary" id="btnBackTunai">Kembali ke Checkout</button>
+            <button class="btn btn--secondary" id="btnBackTunai" style="margin-top:8px;">Kembali ke Checkout</button>
         `;
 
         document.getElementById("btnKonfirmasiTunai").addEventListener("click", () => {
@@ -294,13 +297,13 @@ function render() {
 
             <section class="card">
                 <h2>Informasi Pesanan</h2>
-                <div class="order-item-row"><span>Nomor Order</span><b style="color:var(--primary-red); font-size:16px;">${state.orderId}</b></div>
-                <div class="order-item-row"><span>Metode Bayar</span><b>${state.metode.toUpperCase()}</b></div>
+                <div class="order-item-row" style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>Nomor Order</span><b style="color:var(--primary-red, #E11D48); font-size:16px;">${state.orderId}</b></div>
+                <div class="order-item-row" style="display:flex; justify-content:space-between;"><span>Metode Bayar</span><b>${state.metode.toUpperCase()}</b></div>
             </section>
         `;
 
         footer.innerHTML = `
-            <a class="btn btn--primary" href="index.html" id="btnSelesaiPesanan">Pesan Menu Lain</a>
+            <a class="btn btn--primary" href="index.html" id="btnSelesaiPesanan" style="text-decoration:none; display:block; text-align:center; line-height:2.5;">Pesan Menu Lain</a>
         `;
 
         document.getElementById("btnSelesaiPesanan").addEventListener("click", () => {
@@ -314,8 +317,13 @@ function render() {
 function kirimKeDashboardPenjual(state, totalHarga, statusAwal) {
     try {
         let semuaPesanan = JSON.parse(localStorage.getItem(DASHBOARD_KEY)) || [];
+        const nextAntrean = semuaPesanan.length + 1;
+        const newOrderId = Date.now();
+
         const pesananBaru = {
-            idOrder: state.orderId,
+            db_id_order: newOrderId,
+            idOrder: state.orderId || `ANT-${String(nextAntrean).padStart(2, '0')}`,
+            nomorAntrean: nextAntrean,
             waktu: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
             tanggal: new Date().toLocaleDateString("id-ID"),
             items: state.items,
@@ -325,6 +333,7 @@ function kirimKeDashboardPenjual(state, totalHarga, statusAwal) {
             totalHargaFormatted: formatRupiah(totalHarga),
             status: statusAwal
         };
+
         semuaPesanan.push(pesananBaru);
         localStorage.setItem(DASHBOARD_KEY, JSON.stringify(semuaPesanan));
     } catch (e) {
@@ -334,8 +343,4 @@ function kirimKeDashboardPenjual(state, totalHarga, statusAwal) {
 
 document.addEventListener("DOMContentLoaded", () => {
     render();
-<<<<<<< HEAD
-});//zero
-=======
 });
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
