@@ -207,3 +207,81 @@ ON menu_custom FOR ALL
 TO authenticated
 USING (true)
 WITH CHECK (true);
+
+
+-- ==========================================
+-- 7. DATA DUMMY / TEST TRANSAKSI UNTUK PENGUJIAN APRIORI ML
+-- ==========================================
+
+-- A. Masukkan 10 Data Transaksi Contoh
+INSERT INTO orders (nomor_antrean, nama_pembeli, tipe_pembayaran, status_pembayaran, status_pesanan, total_harga) VALUES
+(1, 'Rian', 'qris', 'lunas', 'selesai', 20000),
+(2, 'Siti', 'cash', 'lunas', 'selesai', 23000),
+(3, 'Budi', 'qris', 'lunas', 'selesai', 30000),
+(4, 'Dewi', 'cash', 'lunas', 'selesai', 28000),
+(5, 'Andi', 'qris', 'lunas', 'selesai', 20000),
+(6, 'Maya', 'cash', 'lunas', 'selesai', 25000),
+(7, 'Fajar', 'qris', 'lunas', 'selesai', 23000),
+(8, 'Dina', 'cash', 'lunas', 'selesai', 20000),
+(9, 'Eko', 'qris', 'lunas', 'selesai', 16000),
+(10, 'Rina', 'cash', 'lunas', 'selesai', 33000);
+
+-- B. Masukkan Detail Item Pesanan (Membentuk Pola Asosiasi Apriori)
+-- Relasi item menggunakan nama menu agar kompatibel dengan ID berapapun
+INSERT INTO order_items (id_order, id_menu, jumlah, subtotal)
+SELECT o.id_order, m.id_menu, 1, m.harga
+FROM orders o, menus m
+WHERE o.nama_pembeli = 'Rian' AND m.nama_dimsum IN ('Dimsum Mentai Ori - S (3pcs)', 'Bakpao Salted Egg (1 pcs)');
+
+INSERT INTO order_items (id_order, id_menu, jumlah, subtotal)
+SELECT o.id_order, m.id_menu, 1, m.harga
+FROM orders o, menus m
+WHERE o.nama_pembeli = 'Siti' AND m.nama_dimsum IN ('Dimsum Mentai Ori - S (3pcs)', 'Extra Mentai (M)', 'Bakpao Coklat Lumer (1 pcs)');
+
+INSERT INTO order_items (id_order, id_menu, jumlah, subtotal)
+SELECT o.id_order, m.id_menu, 1, m.harga
+FROM orders o, menus m
+WHERE o.nama_pembeli = 'Budi' AND m.nama_dimsum IN ('Dimsum Mentai Ori - M (6pcs)', 'Bakpao Salted Egg (1 pcs)');
+
+INSERT INTO order_items (id_order, id_menu, jumlah, subtotal)
+SELECT o.id_order, m.id_menu, 1, m.harga
+FROM orders o, menus m
+WHERE o.nama_pembeli = 'Dewi' AND m.nama_dimsum IN ('Dimsum Mentai Cheeze - S (3pcs)', 'Dimsum Aja - S (3pcs)', 'Chilli Oil Extra');
+
+INSERT INTO order_items (id_order, id_menu, jumlah, subtotal)
+SELECT o.id_order, m.id_menu, 1, m.harga
+FROM orders o, menus m
+WHERE o.nama_pembeli = 'Andi' AND m.nama_dimsum IN ('Dimsum Mentai Ori - S (3pcs)', 'Bakpao Ayam Casio (1 pcs)');
+
+INSERT INTO order_items (id_order, id_menu, jumlah, subtotal)
+SELECT o.id_order, m.id_menu, 1, m.harga
+FROM orders o, menus m
+WHERE o.nama_pembeli = 'Maya' AND m.nama_dimsum IN ('Dimsum Mentai Cheeze - S (3pcs)', 'Dimsum Aja - S (3pcs)');
+
+INSERT INTO order_items (id_order, id_menu, jumlah, subtotal)
+SELECT o.id_order, m.id_menu, 1, m.harga
+FROM orders o, menus m
+WHERE o.nama_pembeli = 'Fajar' AND m.nama_dimsum IN ('Dimsum Mentai Ori - S (3pcs)', 'Bakpao Keju Susu (1 pcs)', 'Extra Mentai (M)');
+
+INSERT INTO order_items (id_order, id_menu, jumlah, subtotal)
+SELECT o.id_order, m.id_menu, 1, m.harga
+FROM orders o, menus m
+WHERE o.nama_pembeli = 'Dina' AND m.nama_dimsum IN ('Dimsum Mentai Ori - S (3pcs)', 'Bakpao Salted Egg (1 pcs)');
+
+INSERT INTO order_items (id_order, id_menu, jumlah, subtotal)
+SELECT o.id_order, m.id_menu, 1, m.harga
+FROM orders o, menus m
+WHERE o.nama_pembeli = 'Eko' AND m.nama_dimsum IN ('Dimsum Aja - S (3pcs)', 'Extra Mentai (M)', 'Chilli Oil Extra');
+
+INSERT INTO order_items (id_order, id_menu, jumlah, subtotal)
+SELECT o.id_order, m.id_menu, 1, m.harga
+FROM orders o, menus m
+WHERE o.nama_pembeli = 'Rina' AND m.nama_dimsum IN ('Dimsum Mentai Ori - M (6pcs)', 'Bakpao Salted Egg (1 pcs)', 'Extra Mentai (M)');
+
+-- C. Query Verifikasi untuk Melihat Keranjang Belanja per Transaksi
+SELECT o.id_order, o.nama_pembeli, array_agg(m.nama_dimsum) AS keranjang_menu
+FROM orders o
+JOIN order_items od ON o.id_order = od.id_order
+JOIN menus m ON od.id_menu = m.id_menu
+GROUP BY o.id_order, o.nama_pembeli
+ORDER BY o.id_order;

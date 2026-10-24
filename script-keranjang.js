@@ -187,25 +187,22 @@ if (localStorage.getItem('sabangdor_status_toko') === 'tutup') {
 }
 
 // ===== AI Cross-Selling Apriori =====
-const CATALOG_REKOMENDASI = (typeof window !== 'undefined' && window.MENU_REKOMENDASI_DEFAULT) ? window.MENU_REKOMENDASI_DEFAULT : [
-    { nama: "Bakpao", varian: "5 Varian | 1 pcs", harga: 7000, imgSrc: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80" },
-    { nama: "Extra Mentai", varian: "Add-on Saus Mentai Gurih", harga: 3000, imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
-    { nama: "Dimsum Aja", varian: "S | 3 pcs", harga: 10000, imgSrc: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=600&q=80" }
-];
-
+// ===== AI Cross-Selling Apriori (Real Data Only) =====
 async function renderAiCrossSelling() {
     const listEl = $("aiRecList");
+    const recCard = $("aiRecCard");
     if (!listEl) return;
 
-    const cartNames = cart.map(i => (i.nama || "").toLowerCase());
+    const cartNames = cart.map(i => i.nama || "");
     let recommendations = [];
 
-    // 1. Coba ambil dari Python API Server (jika aktif)
+    // 1. Coba ambil dari backend Express jika aktif
     try {
+        const base = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '/api';
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 1000);
-        const queryCart = cart.map(i => i.nama).join(",");
-        const res = await fetch(`http://127.0.0.1:5000/api/recommend?cart=${encodeURIComponent(queryCart)}`, { signal: controller.signal });
+        const queryCart = cartNames.join(",");
+        const res = await fetch(`${base}/recommend?cart=${encodeURIComponent(queryCart)}`, { signal: controller.signal });
         clearTimeout(timeoutId);
 
         if (res.ok) {
@@ -215,21 +212,33 @@ async function renderAiCrossSelling() {
             }
         }
     } catch (e) {
-        // Fallback offline jika server python belum dijalankan
+        // Backend offline / serverless
     }
 
-    // 2. Jika server belum aktif, gunakan aturan asosiasi bawaan
-    if (recommendations.length === 0) {
-        recommendations = CATALOG_REKOMENDASI.filter(item => {
-            return !cartNames.some(cn => cn.includes(item.nama.toLowerCase()));
-        });
+    // 2. Analisis langsung di browser menggunakan AprioriEngine dari riwayat transaksi nyata (Supabase / Local)
+    if (recommendations.length === 0 && typeof window !== 'undefined' && window.AprioriEngine) {
+        try {
+            let baskets = [];
+            if (window.supabaseClient) {
+                baskets = await window.AprioriEngine.getSupabaseTransactions(window.supabaseClient);
+            }
+            if (!baskets || baskets.length === 0) {
+                baskets = window.AprioriEngine.getRealTransactions();
+            }
+            const { rules } = window.AprioriEngine.trainApriori(baskets);
+            recommendations = window.AprioriEngine.recommend(rules, cartNames, 2);
+        } catch (err) {
+            console.warn('Gagal menghitung cross-selling:', err);
+        }
     }
 
+    // 3. Jika belum ada aturan asosiasi dari transaksi nyata, sembunyikan kartu
     if (recommendations.length === 0) {
-        const recCard = $("aiRecCard");
         if (recCard) recCard.style.display = "none";
         return;
     }
+
+    if (recCard) recCard.style.display = "block";
 
     // Render rekomendasi pelengkap terbaik
     listEl.innerHTML = recommendations.slice(0, 2).map((item, idx) => `

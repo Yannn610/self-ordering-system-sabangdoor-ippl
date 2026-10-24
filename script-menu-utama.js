@@ -2,48 +2,8 @@
  * File: js/script-menu-utama.js
  */
 
-let menuRekomendasiAI = (typeof window !== 'undefined' && window.MENU_REKOMENDASI_DEFAULT) ? window.MENU_REKOMENDASI_DEFAULT : [
-    {
-        nama: "Mentai Ori",
-        variantInfo: "S / M / XL | 3 / 6 / 16 pcs",
-        harga: 13000,
-        hargaFormatted: "Mulai Rp13.000",
-        linkDetail: "dimsum-mentai-ori.html",
-        imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
-    },
-    {
-        nama: "Bakpao",
-        variantInfo: "5 Varian | 1 / 3 / 6 pcs",
-        harga: 7000,
-        hargaFormatted: "Mulai Rp7.000",
-        linkDetail: "detail-menu-bakpao.html",
-        imgSrc: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80"
-    },
-    {
-        nama: "Extra Mentai",
-        variantInfo: "Add-on Saus Mentai Gurih",
-        harga: 3000,
-        hargaFormatted: "Rp3.000",
-        linkDetail: "index.html#section-mentai",
-        imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
-    },
-    {
-        nama: "Dimsum Aja",
-        variantInfo: "S / M / XL | 3 / 6 / 16 pcs",
-        harga: 10000,
-        hargaFormatted: "Mulai Rp10.000",
-        linkDetail: "dimsum-aja.html",
-        imgSrc: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=600&q=80"
-    },
-    {
-        nama: "Mentai Cheese",
-        variantInfo: "S / M / XL | 3 / 6 / 16 pcs",
-        harga: 15000,
-        hargaFormatted: "Mulai Rp15.000",
-        linkDetail: "dimsum-mentai-cheese.html",
-        imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
-    }
-];
+let menuRekomendasiAI = [];
+
 
 // Helper fallback jika tidak terdefinisi di config.js
 const DEFAULT_MENU_IMG = typeof window.DEFAULT_MENU_IMG !== 'undefined' ? window.DEFAULT_MENU_IMG : 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80';
@@ -472,6 +432,66 @@ window.addEventListener('storage', (e) => {
     }
 });
 
+// ==========================================
+// 11. REKOMENDASI AI (APRIORI ML ENGINE)
+// ==========================================
+function renderRekomendasiAI() {
+    const container = document.getElementById('rekomendasi-container') || document.querySelector('#section-rekomendasi .menu-container');
+    if (!container) return;
+
+    if (!menuRekomendasiAI || menuRekomendasiAI.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = menuRekomendasiAI.map(item => `
+        <div class="card-menu">
+            <img src="${item.imgSrc || 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80'}" alt="${item.nama}" class="card-img">
+            <div class="card-content">
+                <h3 class="card-title">${item.nama}</h3>
+                <p class="variant">${item.variantInfo || item.varian || ''}</p>
+                <p class="price">${item.hargaFormatted || ('Rp' + (item.harga || 0).toLocaleString('id-ID'))}</p>
+            </div>
+            <a href="${item.linkDetail || 'index.html'}" class="btn-pilih">+ Pilih menu</a>
+        </div>
+    `).join('');
+
+    updateTampilanStokPembeli();
+}
+
+async function sinkronkanRekomendasiAI() {
+    let baskets = [];
+
+    // 1. Coba ambil riwayat transaksi langsung dari Supabase
+    if (typeof window !== 'undefined' && window.AprioriEngine && window.supabaseClient) {
+        try {
+            baskets = await window.AprioriEngine.getSupabaseTransactions(window.supabaseClient);
+        } catch (e) {
+            // Supabase offline / belum terkoneksi
+        }
+    }
+
+    // 2. Jika Supabase kosong/belum aktif, ambil dari riwayat pesanan lokal (localStorage)
+    if (!baskets || baskets.length === 0) {
+        if (typeof window !== 'undefined' && window.AprioriEngine) {
+            baskets = window.AprioriEngine.getRealTransactions();
+        }
+    }
+
+    // 3. Jalankan algoritma Apriori dengan data transaksi riil
+    if (typeof window !== 'undefined' && window.AprioriEngine && typeof window.AprioriEngine.trainApriori === 'function') {
+        try {
+            const { frequentItemsets } = window.AprioriEngine.trainApriori(baskets);
+            const topMenu = window.AprioriEngine.getPopularRecommendations(frequentItemsets, 5);
+            menuRekomendasiAI = topMenu || [];
+        } catch (err) {
+            menuRekomendasiAI = [];
+        }
+    }
+
+    renderRekomendasiAI();
+}
+
 // 12. Pengecekan & Penguncian Toko Tutup
 function cekDanTerapkanStatusToko() {
     const statusToko = localStorage.getItem('sabangdor_status_toko');
@@ -535,3 +555,4 @@ function cekDanTerapkanStatusToko() {
         renderPopupKeranjang();
     }
 }
+

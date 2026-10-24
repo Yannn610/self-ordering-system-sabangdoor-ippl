@@ -150,7 +150,69 @@ app.put('/api/orders/:id', async (req, res) => {
     }
 });
 
-const PORT = 5000;
+// ==========================================
+// 8. API REKOMENDASI AI (APRIORI ML ENGINE)
+// ==========================================
+const AprioriEngine = require('../apriori_recommendation.js');
+
+// 8A. Rekomendasi Menu Paling Populer (Tab 'Paling Rekomendasi' di index.html)
+app.get('/api/recommendations', async (req, res) => {
+    try {
+        let baskets = [];
+        try {
+            const query = `
+                SELECT o.id_order, array_agg(m.nama_dimsum) as items
+                FROM orders o
+                JOIN order_items od ON o.id_order = od.id_order
+                JOIN menus m ON od.id_menu = m.id_menu
+                GROUP BY o.id_order;
+            `;
+            const result = await pool.query(query);
+            if (result && result.rows.length > 0) {
+                baskets = result.rows.map(r => (r.items || []).map(AprioriEngine.normalizeMenuName).filter(Boolean));
+            }
+        } catch (dbErr) {
+            // Jika database belum aktif/kosong, Apriori otomatis menggunakan benchmark Sabangdor
+        }
+
+        const { frequentItemsets } = AprioriEngine.trainApriori(baskets);
+        const topMenu = AprioriEngine.getPopularRecommendations(frequentItemsets, 5);
+        res.json(topMenu);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 8B. Rekomendasi Pelengkap Keranjang (Cross-Selling Apriori Rules)
+app.get('/api/recommend', async (req, res) => {
+    try {
+        const rawCart = req.query.cart || "";
+        const cartItems = rawCart.split(',').map(s => s.trim()).filter(Boolean);
+        let baskets = [];
+
+        try {
+            const query = `
+                SELECT o.id_order, array_agg(m.nama_dimsum) as items
+                FROM orders o
+                JOIN order_items od ON o.id_order = od.id_order
+                JOIN menus m ON od.id_menu = m.id_menu
+                GROUP BY o.id_order;
+            `;
+            const result = await pool.query(query);
+            if (result && result.rows.length > 0) {
+                baskets = result.rows.map(r => (r.items || []).map(AprioriEngine.normalizeMenuName).filter(Boolean));
+            }
+        } catch (dbErr) {}
+
+        const { frequentItemsets, rules } = AprioriEngine.trainApriori(baskets);
+        const recommendations = AprioriEngine.recommend(rules, cartItems, 5, frequentItemsets);
+        res.json(recommendations);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server Express berjalan di http://localhost:${PORT}`);
-});      //zero
+});
