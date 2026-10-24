@@ -21,7 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSubmit.innerText = 'Memeriksa...';
 
         try {
-<<<<<<< HEAD
             // Panggil Backend API Express.js lokal
             const response = await fetch('http://localhost:5000/api/login', {
                 method: 'POST',
@@ -36,20 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok || !data.success) {
                 throw new Error(data.message || 'Email atau kata sandi salah!');
             }
-=======
-            // Simulasi pengecekan login lokal (ubah email & password sesuai kebutuhan)
-            // Contoh akun pegawai: kasir@sabangdor.com / 123456
-            const validEmail = "kasir@sabangdor.com";
-            const validPassword = "123456";
-
-            if (email !== validEmail || password !== validPassword) {
-                throw new Error('Email atau kata sandi salah!');
-            }
-
-            // Simpan status sesi login lokal (opsional)
-            sessionStorage.setItem("sabangdor_logged_in", "true");
-            sessionStorage.setItem("sabangdor_user_email", email);
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
 
             // Simpan sesi login lokal di browser
             localStorage.setItem('pegawai_session', JSON.stringify(data.user));
@@ -69,8 +54,4 @@ document.addEventListener('DOMContentLoaded', () => {
             btnSubmit.innerText = 'Masuk';
         }
     });
-<<<<<<< HEAD
-}); //zero
-=======
 });
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
