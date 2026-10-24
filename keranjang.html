@@ -41,6 +41,15 @@
         </div>
       </section>
 
+      <section id="aiRecCard" class="card" style="display:none; margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <h2 class="card-title" style="margin:0;">Cocok Ditambahin Ini (AI)</h2>
+          <span style="font-size:10px; font-weight:700; background:#FEE2E2; color:#E11D48; padding:3px 8px; border-radius:12px;">Apriori ML</span>
+        </div>
+        <p class="card-sub" style="margin-bottom:12px;">Pelanggan lain sering memesan menu ini bersamaan:</p>
+        <div id="aiRecList" style="display:flex; flex-direction:column; gap:10px;"></div>
+      </section>
+
       <section id="summary" class="card summary">
         <div class="summary-row">
           <span>Jumlah item</span>
@@ -64,6 +73,7 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
+  <script src="rekomendasi_data.js"></script>
   <script src="script-keranjang.js"></script>
 </body>
 </html>

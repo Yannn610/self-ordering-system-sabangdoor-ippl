@@ -37,6 +37,11 @@ body {
     padding: 16px;
 }
 
+/* Anak langsung container tidak boleh menciut (container = flex column tinggi tetap) */
+.mobile-container > * {
+    flex-shrink: 0;
+}
+
 /* Header & Typography */
 .main-header {
     font-size: 18px;
@@ -61,6 +66,7 @@ body {
 
 /* NAV TAB BAR KATEGORI (GAYA DARI SISI PENJUAL) */
 .nav-tab-bar {
+    flex-shrink: 0;           /* jangan ikut menciut saat isi halaman panjang */
     display: flex;
     background-color: white;
     border-bottom: 1px solid var(--border-line);
@@ -197,10 +203,16 @@ body {
 
 /* ANIMASI & POPUP KERANJANG */
 .cart-popup {
-    position: absolute;
+    position: fixed;          /* menempel di bawah layar, tidak ikut ter-scroll */
     bottom: 0;
     left: 0;
     right: 0;
+    width: 100%;
+    max-width: 480px;         /* sama dengan .mobile-container */
+    margin: 0 auto;
+    max-height: 70vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     background: white;
     border-top-left-radius: 20px;
     border-top-right-radius: 20px;

@@ -98,6 +98,15 @@ function render() {
     $("cartTotal").textContent = total;
     $("checkoutBtn").disabled = isEmpty;
 
+    const recCard = $("aiRecCard");
+    if (recCard) {
+        recCard.style.display = isEmpty ? "none" : "block";
+    }
+
+    if (!isEmpty) {
+        renderAiCrossSelling();
+    }
+
     saveCart();
 }
 
@@ -169,6 +178,100 @@ function showToast(text) {
     toastEl.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2200);
+}
+
+// Tambahkan di awal skrip halaman keranjang.html
+if (localStorage.getItem('sabangdor_status_toko') === 'tutup') {
+    alert("Mohon maaf, toko saat ini sedang TUTUP. Anda akan diarahkan kembali ke halaman utama.");
+    window.location.href = 'index.html';
+}
+
+// ===== AI Cross-Selling Apriori =====
+const CATALOG_REKOMENDASI = (typeof window !== 'undefined' && window.MENU_REKOMENDASI_DEFAULT) ? window.MENU_REKOMENDASI_DEFAULT : [
+    { nama: "Bakpao", varian: "5 Varian | 1 pcs", harga: 7000, imgSrc: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80" },
+    { nama: "Extra Mentai", varian: "Add-on Saus Mentai Gurih", harga: 3000, imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
+    { nama: "Dimsum Aja", varian: "S | 3 pcs", harga: 10000, imgSrc: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=600&q=80" }
+];
+
+async function renderAiCrossSelling() {
+    const listEl = $("aiRecList");
+    if (!listEl) return;
+
+    const cartNames = cart.map(i => (i.nama || "").toLowerCase());
+    let recommendations = [];
+
+    // 1. Coba ambil dari Python API Server (jika aktif)
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
+        const queryCart = cart.map(i => i.nama).join(",");
+        const res = await fetch(`http://127.0.0.1:5000/api/recommend?cart=${encodeURIComponent(queryCart)}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+                recommendations = data;
+            }
+        }
+    } catch (e) {
+        // Fallback offline jika server python belum dijalankan
+    }
+
+    // 2. Jika server belum aktif, gunakan aturan asosiasi bawaan
+    if (recommendations.length === 0) {
+        recommendations = CATALOG_REKOMENDASI.filter(item => {
+            return !cartNames.some(cn => cn.includes(item.nama.toLowerCase()));
+        });
+    }
+
+    if (recommendations.length === 0) {
+        const recCard = $("aiRecCard");
+        if (recCard) recCard.style.display = "none";
+        return;
+    }
+
+    // Render rekomendasi pelengkap terbaik
+    listEl.innerHTML = recommendations.slice(0, 2).map((item, idx) => `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <img src="${esc(item.imgSrc)}" alt="${esc(item.nama)}" style="width:44px; height:44px; object-fit:cover; border-radius:8px;">
+                <div>
+                    <p style="font-size:13px; font-weight:700; color:#1E293B; margin:0;">${esc(item.nama)}</p>
+                    <p style="font-size:11px; color:#E11D48; font-weight:600; margin:2px 0 0 0;">${formatRupiah(item.harga || 7000)}</p>
+                </div>
+            </div>
+            <button type="button" class="btn-outline" style="padding:6px 12px; font-size:12px; border-radius:8px; cursor:pointer;" onclick="tambahItemRekomendasi(${idx})">
+                + Tambah
+            </button>
+        </div>
+    `).join("");
+
+    window._currentAiRecs = recommendations.slice(0, 2);
+}
+
+function tambahItemRekomendasi(index) {
+    const item = (window._currentAiRecs || [])[index];
+    if (!item) return;
+
+    const existingIdx = cart.findIndex(c => (c.nama || "").toLowerCase() === item.nama.toLowerCase());
+    if (existingIdx >= 0) {
+        cart[existingIdx].qty += 1;
+        const unitPrice = cart[existingIdx].harga / (cart[existingIdx].qty - 1);
+        cart[existingIdx].harga = Math.round(unitPrice * cart[existingIdx].qty);
+    } else {
+        cart.push({
+            nama: item.nama,
+            varian: item.variantInfo || "Porsi Pilihan",
+            harga: item.harga || 7000,
+            hargaFormatted: formatRupiah(item.harga || 7000),
+            qty: 1,
+            imgSrc: item.imgSrc || ""
+        });
+    }
+
+    render();
+    showToast(`"${item.nama}" ditambahkan ke keranjang!`);
 }
 
 // ===== Inisialisasi Awal =====

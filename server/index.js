@@ -7,12 +7,13 @@ app.use(cors());
 app.use(express.json());
 
 // Konfigurasi Koneksi PostgreSQL Lokal
+// Konfigurasi Koneksi PostgreSQL Lokal
 const pool = new Pool({
-    user: 'postgres',         // Username default PostgreSQL
+    user: 'postgres',              // Username bawaan server PostgreSQL
     host: 'localhost',
-    database: 'impal',        // Database khusus tugas kuliah Anda
-    password: 'MASUKKAN_PASSWORD_POSTGRES_ANDA_DISINI', // <-- Ganti dengan password pgAdmin Anda
-    port: 5432,
+    database: 'impal',             // Nama database di pgAdmin
+    password: 'dokja', // <-- Masukkan password pgAdmin Anda di sini
+    port: 5432,                    // Port default PostgreSQL
 });
 
 // Tes Koneksi ke Database saat server dinyalakan

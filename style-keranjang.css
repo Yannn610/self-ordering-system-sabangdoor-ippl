@@ -394,16 +394,17 @@ ul {
 /* ---------- Responsif Media Queries (Tampilan Laptop / PC) ---------- */
 @media (min-width: 640px) {
   body {
-    padding: 24px 0;
+    padding: 0;
     background: #0f172a;
   }
 
-  .app {
-    width: 440px;
-    height: 840px;
-    max-height: calc(100vh - 48px);
-    border-radius: 28px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+.app {
+    width: 100%;
+    max-width: 480px;
+    height: 100vh;
+    height: 100dvh;
+    border-radius: 0;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
   }
 }
 

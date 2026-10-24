@@ -58,14 +58,13 @@
         <div class="home-indicator"></div>
     </div>
 
-    <script src="script-pembayaran.js"></script>
     <!-- 1. Supabase SDK CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- 2. File Config Supabase -->
-    <script src="penjual-page/config.js"></script>
+    <!-- 2. File Config Supabase (Harus dimuat sebelum script-pembayaran.js) -->
+    <script src="config.js"></script>
 
-    <!-- 3. Script Keranjang / Checkout Pembeli -->
+    <!-- 3. Script Pembayaran Pembeli (Cukup 1 kali di bagian paling bawah) -->
     <script src="script-pembayaran.js"></script>
 </body>
 </html>

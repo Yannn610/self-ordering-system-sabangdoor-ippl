@@ -1,8 +1,49 @@
 /**
- * File: js/script-menu-utama.js
+ - File: js/script-menu-utama.js
  */
 
-let menuRekomendasiAI = []; 
+let menuRekomendasiAI = (typeof window !== 'undefined' && window.MENU_REKOMENDASI_DEFAULT) ? window.MENU_REKOMENDASI_DEFAULT : [
+    {
+        nama: "Mentai Ori",
+        variantInfo: "S / M / XL | 3 / 6 / 16 pcs",
+        harga: 13000,
+        hargaFormatted: "Mulai Rp13.000",
+        linkDetail: "dimsum-mentai-ori.html",
+        imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        nama: "Bakpao",
+        variantInfo: "5 Varian | 1 / 3 / 6 pcs",
+        harga: 7000,
+        hargaFormatted: "Mulai Rp7.000",
+        linkDetail: "detail-menu-bakpao.html",
+        imgSrc: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        nama: "Extra Mentai",
+        variantInfo: "Add-on Saus Mentai Gurih",
+        harga: 3000,
+        hargaFormatted: "Rp3.000",
+        linkDetail: "index.html#section-mentai",
+        imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        nama: "Dimsum Aja",
+        variantInfo: "S / M / XL | 3 / 6 / 16 pcs",
+        harga: 10000,
+        hargaFormatted: "Mulai Rp10.000",
+        linkDetail: "dimsum-aja.html",
+        imgSrc: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        nama: "Mentai Cheese",
+        variantInfo: "S / M / XL | 3 / 6 / 16 pcs",
+        harga: 15000,
+        hargaFormatted: "Mulai Rp15.000",
+        linkDetail: "dimsum-mentai-cheese.html",
+        imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
+    }
+];
 
 // 1. Fungsi Switch Kategori Tab
 function pilihKategori(event, targetId) {
@@ -25,14 +66,58 @@ function pilihKategori(event, targetId) {
 
 // 2. Load saat halaman siap
 window.addEventListener('DOMContentLoaded', () => {
+    renderRekomendasiAI(); // Render rekomendasi AI langsung di tab Paling Rekomendasi
+    sinkronkanRekomendasiAI(); // Cek update real-time dari server Python (jika aktif)
     renderMenuCustom();
-    renderRekomendasiAI();
     updateTampilanStokPembeli();
     renderPopupKeranjang();
     initStaffTrigger();
+    initRuangPopupKeranjang();
+
+    // Cek status operasional toko
+    cekDanTerapkanStatusToko();
+    setInterval(cekDanTerapkanStatusToko, 2000); // Cek otomatis secara berkala
+
+    // Ambil menu custom terbaru dari Supabase, lalu cek ulang tiap 5 detik
+    // supaya status HABIS dari kasir cepat muncul di HP pembeli.
+    segarkanMenuCustom(true);
+    setInterval(() => segarkanMenuCustom(false), 5000);
 });
 
-// 3. FUNGSI UNTUK TEMAN ANDA MENYAMBUNGKAN AI PADA KATEGORI REKOMENDASI
+async function segarkanMenuCustom(paksa) {
+    if (document.hidden && !paksa) return;
+    if (typeof getCustomMenusFromSupabase !== 'function') return;
+
+    const sebelum = localStorage.getItem(CUSTOM_MENU_KEY);
+    await getCustomMenusFromSupabase();
+    const sesudah = localStorage.getItem(CUSTOM_MENU_KEY);
+
+    if (paksa || sebelum !== sesudah) {
+        renderMenuCustom();
+        updateTampilanStokPembeli();
+    }
+}
+
+// Popup keranjang menempel di bawah layar (position: fixed). Beri ruang kosong
+// di bawah daftar menu sebesar tinggi popup, supaya menu paling bawah tidak tertutup.
+function sesuaikanRuangPopup() {
+    const popup = document.getElementById('cart-popup');
+    const wrap = document.querySelector('.mobile-container');
+    if (!popup || !wrap) return;
+    const tinggi = popup.classList.contains('hidden') ? 0 : popup.offsetHeight;
+    wrap.style.paddingBottom = tinggi ? (tinggi + 24) + 'px' : '';
+}
+
+function initRuangPopupKeranjang() {
+    const popup = document.getElementById('cart-popup');
+    if (!popup) return;
+    if (window.ResizeObserver) new ResizeObserver(sesuaikanRuangPopup).observe(popup);
+    new MutationObserver(sesuaikanRuangPopup).observe(popup, { attributes: true, attributeFilter: ['class'] });
+    window.addEventListener('resize', sesuaikanRuangPopup);
+    sesuaikanRuangPopup();
+}
+
+// 3. FUNGSI RENDER REKOMENDASI (Dibiarkan kosong/aman jika section-nya masih ada di HTML)
 function renderRekomendasiAI() {
     const container = document.getElementById('rekomendasi-container');
     if (!container) return;
@@ -64,12 +149,27 @@ function renderRekomendasiAI() {
     updateTampilanStokPembeli();
 }
 
-// Fungsi helper global yang bisa dipanggil langsung oleh script AI teman Anda (contoh: setRekomendasiDariAI([...]))
-function setRekomendasiDariAI(daftarMenuArray) {
-    if (Array.isArray(daftarMenuArray)) {
-        daftarNamaRekomendasi = null; // jalur lama dipakai, batalkan jalur "by nama"
-        menuRekomendasiAI = daftarMenuArray;
-        renderRekomendasiAI();
+/**
+ * Mengambil rekomendasi menu terbaru secara dinamis dari API server Python (apriori_recommendation.py)
+ * Jika server tidak dijalankan, web tetap berjalan normal menggunakan data rekomendasi bawaan.
+ */
+async function sinkronkanRekomendasiAI() {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1200);
+        const res = await fetch('http://127.0.0.1:5000/api/recommendations', { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+                menuRekomendasiAI = data;
+                renderRekomendasiAI();
+                console.log('[AI Apriori] Berhasil memperbarui rekomendasi menu secara real-time dari Python API Server.');
+            }
+        }
+    } catch (err) {
+        // Mode offline/fallback aman aktif tanpa menampilkan error ke pembeli
     }
 }
 
@@ -176,6 +276,14 @@ function updateTampilanStokPembeli() {
         }
     });
 
+    // Menu tambahan (custom) yang ditandai habis oleh kasir
+    getCustomMenus().forEach(m => {
+        if (!m.habis) return;
+        document.querySelectorAll('.card-menu[data-menu-id]').forEach(card => {
+            if (card.dataset.menuId === String(m.id)) tandaiKartuHabis(card);
+        });
+    });
+
     menuStatus.forEach(item => {
         if (item.status === 'habis') {
             const cards = document.querySelectorAll('.card-menu');
@@ -197,6 +305,19 @@ function updateTampilanStokPembeli() {
             });
         }
     });
+}
+
+function tandaiKartuHabis(card) {
+    card.style.opacity = '0.5';
+    card.style.filter = 'grayscale(100%)';
+    const btn = card.querySelector('.btn-pilih');
+    if (btn) {
+        btn.innerText = 'Habis';
+        btn.style.backgroundColor = '#94A3B8';
+        btn.style.color = '#FFFFFF';
+        btn.style.pointerEvents = 'none';
+        btn.removeAttribute('href');
+    }
 }
 
 // 7. Kosongkan Keranjang
@@ -242,26 +363,27 @@ function initStaffTrigger() {
 window.addEventListener('storage', (e) => {
     if (e.key === 'sabangdor_menu_status') {
         updateTampilanStokPembeli();
-        terapkanRekomendasiNama();
     }
     if (e.key === CUSTOM_MENU_KEY) {
         renderMenuCustom();
         updateTampilanStokPembeli();
-        terapkanRekomendasiNama();
     }
 });
 
 // 10. Menu Tambahan dari Kasir: kartu menu & tab kategori dibuat otomatis
+// Format sama seperti menu lain, contoh: "S / M / XL • 3 / 6 / 16 pcs"
 function teksVarianCustom(menu) {
     const ukuran = menu.ukuran || [];
     const nama = ukuran.map(u => u.nama).join(' / ');
-    const ket = ukuran.map(u => u.ket).filter(Boolean).join(' / ');
-    return ket ? `${nama} • ${ket}` : nama;
+    const porsi = ukuran.map(u => String(u.porsi || u.ket || '').trim()).filter(Boolean);
+    if (!porsi.length) return nama;
+    const semuaAngka = porsi.every(p => /^\d+$/.test(p));
+    return `${nama} • ${porsi.join(' / ')}${semuaAngka ? ' pcs' : ''}`;
 }
 
 function kartuMenuCustom(menu) {
     return `
-        <div class="card-menu" data-custom="1">
+        <div class="card-menu" data-custom="1" data-menu-id="${escHtml(menu.id)}">
             <img src="${menu.img || DEFAULT_MENU_IMG}" alt="${escHtml(menu.nama)}" class="card-img">
             <div class="card-content">
                 <h3 class="card-title">${escHtml(menu.nama)}</h3>
@@ -278,7 +400,6 @@ function renderMenuCustom() {
     const cartPopup = document.getElementById('cart-popup');
     if (!navBar || !cartPopup) return;
 
-    // Ingat tab yang sedang dibuka, lalu bersihkan hasil render sebelumnya
     const activeSection = document.querySelector('.menu-section.active');
     const activeId = activeSection ? activeSection.id : null;
     document.querySelectorAll('[data-custom]').forEach(el => el.remove());
@@ -292,11 +413,9 @@ function renderMenuCustom() {
         let container = null;
 
         if (KATEGORI_BAWAAN[kategori]) {
-            // Masuk ke kategori yang sudah ada
             const sec = document.getElementById(KATEGORI_BAWAAN[kategori]);
             container = sec ? sec.querySelector('.menu-container') : null;
         } else {
-            // Kategori baru: buat tab + section otomatis
             const secId = 'section-custom-' + slugKategori(kategori);
 
             const tab = document.createElement('button');
@@ -325,7 +444,6 @@ function renderMenuCustom() {
         }
     });
 
-    // Jika tab yang sedang dibuka ikut terhapus, kembali ke tab pertama
     if (activeId && !document.getElementById(activeId)) {
         const firstTab = navBar.querySelector('.tab-item');
         const firstSec = document.querySelector('.menu-section');
@@ -335,104 +453,91 @@ function renderMenuCustom() {
     }
 }
 
-// ==========================================================
-// 11. WADAH UNTUK AI (REKOMENDASI "PALING REKOMENDASI")
-// ----------------------------------------------------------
-// Cara paling mudah untuk AI/skrip teman: kirim DAFTAR NAMA MENU
-// berurutan (paling direkomendasikan di depan). Data gambar, harga,
-// varian, dan link detail diambil otomatis dari kartu menu yang ada,
-// baik menu bawaan maupun menu tambahan dari kasir.
-//
-//   setRekomendasiByNama(['Mentai Ori', 'Siomay Ayam', 'Bakpao']);
-//   setRekomendasiByNama(daftarNama, 4);   // batasi 4 menu (default 6)
-//
-// getDaftarNamaMenu() -> daftar semua nama menu yang tersedia saat ini
-// (tidak termasuk yang Habis), berguna untuk mencocokkan hasil AI.
-//
-// Aturan:
-//  - Nama dicocokkan tanpa membedakan huruf besar/kecil.
-//  - Nama yang tidak ditemukan dilewati (ada peringatan di Console).
-//  - Menu yang sedang Habis otomatis tidak ditampilkan.
-//  - Daftar diterapkan ulang otomatis kalau stok atau menu tambahan berubah.
-//  - Skrip AI harus dimuat SETELAH script-menu-utama.js.
-//  - Jalur lama setRekomendasiDariAI([...objek lengkap]) tetap bisa dipakai.
-// ==========================================================
-let daftarNamaRekomendasi = null;
-
-function ambilDataMenuTersedia() {
-    const status = JSON.parse(localStorage.getItem('sabangdor_menu_status')) || [];
-    const habis = status
-        .filter(s => s.status === 'habis')
-        .map(s => String(s.nama).trim().toLowerCase());
-
-    const hasil = {};
-    document.querySelectorAll('.menu-section .menu-container .card-menu').forEach(card => {
-        if (card.closest('#rekomendasi-container')) return; // jangan baca kartu rekomendasi sendiri
-
-        const judul = card.querySelector('.card-title');
-        const tombol = card.querySelector('.btn-pilih');
-        if (!judul || !tombol) return;
-
-        const nama = judul.textContent.trim();
-        const key = nama.toLowerCase();
-        const gambar = card.querySelector('.card-img');
-        const varian = card.querySelector('.variant');
-        const harga = card.querySelector('.price');
-        const href = tombol.getAttribute('href');
-
-        hasil[key] = {
-            nama: nama,
-            imgSrc: gambar ? gambar.getAttribute('src') : '',
-            variantInfo: varian ? varian.textContent.trim() : '',
-            hargaFormatted: harga ? harga.textContent.trim() : '',
-            linkDetail: href,
-            habis: habis.includes(key) || !href
-        };
-    });
-    return hasil;
-}
-
-function getDaftarNamaMenu() {
-    return Object.values(ambilDataMenuTersedia())
-        .filter(m => !m.habis)
-        .map(m => m.nama);
-}
-
-function setRekomendasiByNama(daftarNama, batas) {
-    if (!Array.isArray(daftarNama)) return;
-    daftarNamaRekomendasi = { daftar: daftarNama, batas: batas || 6 };
-
-    // Kalau dipanggil sebelum halaman selesai dimuat, tunggu dulu
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', terapkanRekomendasiNama);
-        return;
+// Listener real-time instan antar-tab browser (Dashboard Kasir <-> Index)
+window.addEventListener('storage', (e) => {
+    if (e.key === 'sabangdor_menu_status') {
+        updateTampilanStokPembeli();
     }
-    terapkanRekomendasiNama();
-}
-
-function terapkanRekomendasiNama() {
-    if (!daftarNamaRekomendasi) return;
-
-    const semua = ambilDataMenuTersedia();
-    const hasil = [];
-    const tidakDitemukan = [];
-
-    daftarNamaRekomendasi.daftar.forEach(item => {
-        const nama = typeof item === 'string' ? item : (item && item.nama);
-        if (!nama) return;
-
-        const data = semua[String(nama).trim().toLowerCase()];
-        if (!data) { tidakDitemukan.push(nama); return; }
-        if (data.habis) return;
-        if (hasil.some(h => h.nama === data.nama)) return; // hindari duplikat
-
-        hasil.push(data);
-    });
-
-    if (tidakDitemukan.length) {
-        console.warn('Rekomendasi AI: menu tidak ditemukan ->', tidakDitemukan.join(', '));
+    if (e.key === CUSTOM_MENU_KEY) {
+        renderMenuCustom();
+        updateTampilanStokPembeli();
     }
+    // Deteksi real-time perubahan status buka/tutup toko
+    if (e.key === 'sabangdor_status_toko') {
+        cekDanTerapkanStatusToko();
+    }
+});
 
+<<<<<<< HEAD
     menuRekomendasiAI = hasil.slice(0, daftarNamaRekomendasi.batas);
     renderRekomendasiAI();
 }//zero
+=======
+// Fungsi Pengecekan & Penguncian Toko Tutup
+function cekDanTerapkanStatusToko() {
+    const statusToko = localStorage.getItem('sabangdor_status_toko');
+    const isTutup = statusToko === 'tutup';
+
+    let bannerTutup = document.getElementById('banner-toko-tutup');
+
+    if (isTutup) {
+        // 1. Matikan semua tombol "+ Pilih menu"
+        document.querySelectorAll('.btn-pilih').forEach(btn => {
+            btn.innerText = 'Toko Tutup';
+            btn.style.backgroundColor = '#94A3B8';
+            btn.style.color = '#FFFFFF';
+            btn.style.pointerEvents = 'none';
+            btn.removeAttribute('href');
+        });
+
+        // 2. Sembunyikan & Kunci Popup Keranjang + Tombol "Cek Keranjang"
+        const cartPopup = document.getElementById('cart-popup');
+        const btnCekKeranjang = document.querySelector('.btn-cek-keranjang');
+        
+        if (cartPopup) {
+            cartPopup.classList.remove('show-smooth');
+            cartPopup.classList.add('hidden');
+        }
+        if (btnCekKeranjang) {
+            btnCekKeranjang.disabled = true;
+            btnCekKeranjang.style.pointerEvents = 'none';
+            btnCekKeranjang.style.backgroundColor = '#94A3B8';
+            btnCekKeranjang.innerText = 'Toko Tutup';
+        }
+
+        // 3. Tampilkan Banner Toko Tutup
+        if (!bannerTutup) {
+            const container = document.querySelector('.mobile-container');
+            if (container) {
+                bannerTutup = document.createElement('div');
+                bannerTutup.id = 'banner-toko-tutup';
+                bannerTutup.style.cssText = 'background: #FEF2F2; border: 1px solid #E11D48; color: #E11D48; padding: 12px; border-radius: 12px; text-align: center; font-weight: 700; margin-bottom: 16px; font-size: 13px;';
+                bannerTutup.innerText = '🔴 Mohon Maaf, Toko Saat Ini Sedang Tutup & Belum Menerima Pesanan.';
+                
+                const headerTitle = document.getElementById('staff-trigger');
+                if (headerTitle && headerTitle.nextSibling) {
+                    container.insertBefore(bannerTutup, headerTitle.nextSibling);
+                } else {
+                    container.insertBefore(bannerTutup, container.firstChild);
+                }
+            }
+        }
+    } else {
+        // Jika Toko BUKA Kembali
+        if (bannerTutup) {
+            bannerTutup.remove();
+        }
+
+        const btnCekKeranjang = document.querySelector('.btn-cek-keranjang');
+        if (btnCekKeranjang) {
+            btnCekKeranjang.disabled = false;
+            btnCekKeranjang.style.pointerEvents = 'auto';
+            btnCekKeranjang.style.backgroundColor = '';
+            btnCekKeranjang.innerText = 'Cek Keranjang';
+        }
+
+        updateTampilanStokPembeli();
+        renderPopupKeranjang();
+    }
+}
+>>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
