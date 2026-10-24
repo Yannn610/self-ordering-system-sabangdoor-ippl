@@ -1,5 +1,5 @@
 /**
- - File: js/script-menu-utama.js
+ * File: js/script-menu-utama.js
  */
 
 let menuRekomendasiAI = (typeof window !== 'undefined' && window.MENU_REKOMENDASI_DEFAULT) ? window.MENU_REKOMENDASI_DEFAULT : [
@@ -45,8 +45,43 @@ let menuRekomendasiAI = (typeof window !== 'undefined' && window.MENU_REKOMENDAS
     }
 ];
 
-// 1. Fungsi Switch Kategori Tab
-function pilihKategori(event, targetId) {
+// Helper fallback jika tidak terdefinisi di config.js
+const DEFAULT_MENU_IMG = typeof window.DEFAULT_MENU_IMG !== 'undefined' ? window.DEFAULT_MENU_IMG : 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80';
+const CUSTOM_MENU_KEY = typeof window.CUSTOM_MENU_KEY !== 'undefined' ? window.CUSTOM_MENU_KEY : 'sabangdor_custom_menus';
+const KATEGORI_BAWAAN = typeof window.KATEGORI_BAWAAN !== 'undefined' ? window.KATEGORI_BAWAAN : {
+    'Dimsum Mentai': 'section-mentai',
+    'Dimsum aja': 'section-dimsum-aja',
+    'Bakpao': 'section-bakpao'
+};
+
+function escHtml(str) {
+    if (typeof str !== 'string') return str || '';
+    return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+function slugKategori(str) {
+    return String(str || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function rupiah(num) {
+    return 'Rp' + Number(num || 0).toLocaleString('id-ID');
+}
+
+function hargaMulai(menu) {
+    if (!menu.ukuran || !menu.ukuran.length) return menu.harga || 0;
+    return Math.min(...menu.ukuran.map(u => Number(u.harga) || 0));
+}
+
+function getCustomMenus() {
+    try {
+        return JSON.parse(localStorage.getItem(CUSTOM_MENU_KEY)) || [];
+    } catch (e) {
+        return [];
+    }
+}
+
+// 1. Fungsi Switch Kategori Tab (diekspos ke window agar terbaca dari inline onclick)
+window.pilihKategori = function(event, targetId) {
     if (event) event.preventDefault();
 
     const clickedButton = event ? event.currentTarget : null;
@@ -62,12 +97,12 @@ function pilihKategori(event, targetId) {
     if (targetSection) {
         targetSection.classList.add('active');
     }
-}
+};
 
 // 2. Load saat halaman siap
 window.addEventListener('DOMContentLoaded', () => {
-    renderRekomendasiAI(); // Render rekomendasi AI langsung di tab Paling Rekomendasi
-    sinkronkanRekomendasiAI(); // Cek update real-time dari server Python (jika aktif)
+    renderRekomendasiAI();
+    sinkronkanRekomendasiAI();
     renderMenuCustom();
     updateTampilanStokPembeli();
     renderPopupKeranjang();
@@ -76,10 +111,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Cek status operasional toko
     cekDanTerapkanStatusToko();
-    setInterval(cekDanTerapkanStatusToko, 2000); // Cek otomatis secara berkala
+    setInterval(cekDanTerapkanStatusToko, 2000);
 
-    // Ambil menu custom terbaru dari Supabase, lalu cek ulang tiap 5 detik
-    // supaya status HABIS dari kasir cepat muncul di HP pembeli.
     segarkanMenuCustom(true);
     setInterval(() => segarkanMenuCustom(false), 5000);
 });
@@ -98,8 +131,6 @@ async function segarkanMenuCustom(paksa) {
     }
 }
 
-// Popup keranjang menempel di bawah layar (position: fixed). Beri ruang kosong
-// di bawah daftar menu sebesar tinggi popup, supaya menu paling bawah tidak tertutup.
 function sesuaikanRuangPopup() {
     const popup = document.getElementById('cart-popup');
     const wrap = document.querySelector('.mobile-container');
@@ -117,7 +148,7 @@ function initRuangPopupKeranjang() {
     sesuaikanRuangPopup();
 }
 
-// 3. FUNGSI RENDER REKOMENDASI (Dibiarkan kosong/aman jika section-nya masih ada di HTML)
+// 3. FUNGSI RENDER REKOMENDASI
 function renderRekomendasiAI() {
     const container = document.getElementById('rekomendasi-container');
     if (!container) return;
@@ -149,10 +180,6 @@ function renderRekomendasiAI() {
     updateTampilanStokPembeli();
 }
 
-/**
- * Mengambil rekomendasi menu terbaru secara dinamis dari API server Python (apriori_recommendation.py)
- * Jika server tidak dijalankan, web tetap berjalan normal menggunakan data rekomendasi bawaan.
- */
 async function sinkronkanRekomendasiAI() {
     try {
         const controller = new AbortController();
@@ -169,11 +196,11 @@ async function sinkronkanRekomendasiAI() {
             }
         }
     } catch (err) {
-        // Mode offline/fallback aman aktif tanpa menampilkan error ke pembeli
+        // Mode offline/fallback aman
     }
 }
 
-// 4. Load Popup Keranjang & Render Ulang Item saat Kembali dari Detail Menu
+// 4. Load Popup Keranjang
 function renderPopupKeranjang() {
     const harusBukaPopup = localStorage.getItem('buka_popup_keranjang');
     const cartPopup = document.getElementById('cart-popup');
@@ -238,8 +265,8 @@ function renderPopupKeranjang() {
     }
 }
 
-// 5. Fungsi Ubah Qty (+ / -) Langsung di Popup Keranjang
-function ubahQtyPopup(index, delta) {
+// 5. Fungsi Ubah Qty
+window.ubahQtyPopup = function(index, delta) {
     let keranjang = JSON.parse(localStorage.getItem('sabangdor_cart')) || [];
 
     if (keranjang[index]) {
@@ -261,9 +288,9 @@ function ubahQtyPopup(index, delta) {
             renderPopupKeranjang();
         }
     }
-}
+};
 
-// 6. Sinkronisasi Status Stok Habis dari Dashboard Penjual
+// 6. Sinkronisasi Status Stok Habis
 function updateTampilanStokPembeli() {
     let menuStatus = JSON.parse(localStorage.getItem('sabangdor_menu_status')) || [];
 
@@ -271,12 +298,11 @@ function updateTampilanStokPembeli() {
         card.style.opacity = '1';
         card.style.filter = 'none';
         const btn = card.querySelector('.btn-pilih');
-        if (btn && btn.innerText !== 'Habis') {
+        if (btn && btn.innerText !== 'Habis' && btn.innerText !== 'Toko Tutup') {
             btn.style.pointerEvents = 'auto';
         }
     });
 
-    // Menu tambahan (custom) yang ditandai habis oleh kasir
     getCustomMenus().forEach(m => {
         if (!m.habis) return;
         document.querySelectorAll('.card-menu[data-menu-id]').forEach(card => {
@@ -290,17 +316,7 @@ function updateTampilanStokPembeli() {
             cards.forEach(card => {
                 const titleEl = card.querySelector('.card-title');
                 if (titleEl && titleEl.innerText.trim().toLowerCase() === item.nama.toLowerCase()) {
-                    card.style.opacity = '0.5';
-                    card.style.filter = 'grayscale(100%)';
-
-                    const btn = card.querySelector('.btn-pilih');
-                    if (btn) {
-                        btn.innerText = 'Habis';
-                        btn.style.backgroundColor = '#94A3B8';
-                        btn.style.color = '#FFFFFF';
-                        btn.style.pointerEvents = 'none';
-                        btn.removeAttribute('href');
-                    }
+                    tandaiKartuHabis(card);
                 }
             });
         }
@@ -321,7 +337,7 @@ function tandaiKartuHabis(card) {
 }
 
 // 7. Kosongkan Keranjang
-function kosongkanKeranjang() {
+window.kosongkanKeranjang = function() {
     localStorage.removeItem('sabangdor_cart');
     const cartPopup = document.getElementById('cart-popup');
     if (cartPopup) {
@@ -330,14 +346,14 @@ function kosongkanKeranjang() {
             cartPopup.classList.add('hidden');
         }, 300);
     }
-}
+};
 
 // 8. Navigasi Tombol "Cek Keranjang"
-function keHalamanKeranjang() {
+window.keHalamanKeranjang = function() {
     window.location.href = 'keranjang.html';
-}
+};
 
-// 9. Trigger Rahasia Triple Click untuk Login Pegawai
+// 9. Trigger Rahasia Triple Click
 function initStaffTrigger() {
     const staffTrigger = document.getElementById('staff-trigger');
     if (!staffTrigger) return;
@@ -360,18 +376,7 @@ function initStaffTrigger() {
     });
 }
 
-window.addEventListener('storage', (e) => {
-    if (e.key === 'sabangdor_menu_status') {
-        updateTampilanStokPembeli();
-    }
-    if (e.key === CUSTOM_MENU_KEY) {
-        renderMenuCustom();
-        updateTampilanStokPembeli();
-    }
-});
-
-// 10. Menu Tambahan dari Kasir: kartu menu & tab kategori dibuat otomatis
-// Format sama seperti menu lain, contoh: "S / M / XL • 3 / 6 / 16 pcs"
+// 10. Menu Tambahan dari Kasir
 function teksVarianCustom(menu) {
     const ukuran = menu.ukuran || [];
     const nama = ukuran.map(u => u.nama).join(' / ');
@@ -453,7 +458,7 @@ function renderMenuCustom() {
     }
 }
 
-// Listener real-time instan antar-tab browser (Dashboard Kasir <-> Index)
+// 11. Listener Storage
 window.addEventListener('storage', (e) => {
     if (e.key === 'sabangdor_menu_status') {
         updateTampilanStokPembeli();
@@ -462,18 +467,12 @@ window.addEventListener('storage', (e) => {
         renderMenuCustom();
         updateTampilanStokPembeli();
     }
-    // Deteksi real-time perubahan status buka/tutup toko
     if (e.key === 'sabangdor_status_toko') {
         cekDanTerapkanStatusToko();
     }
 });
 
-<<<<<<< HEAD
-    menuRekomendasiAI = hasil.slice(0, daftarNamaRekomendasi.batas);
-    renderRekomendasiAI();
-}//zero
-=======
-// Fungsi Pengecekan & Penguncian Toko Tutup
+// 12. Pengecekan & Penguncian Toko Tutup
 function cekDanTerapkanStatusToko() {
     const statusToko = localStorage.getItem('sabangdor_status_toko');
     const isTutup = statusToko === 'tutup';
@@ -481,7 +480,6 @@ function cekDanTerapkanStatusToko() {
     let bannerTutup = document.getElementById('banner-toko-tutup');
 
     if (isTutup) {
-        // 1. Matikan semua tombol "+ Pilih menu"
         document.querySelectorAll('.btn-pilih').forEach(btn => {
             btn.innerText = 'Toko Tutup';
             btn.style.backgroundColor = '#94A3B8';
@@ -490,7 +488,6 @@ function cekDanTerapkanStatusToko() {
             btn.removeAttribute('href');
         });
 
-        // 2. Sembunyikan & Kunci Popup Keranjang + Tombol "Cek Keranjang"
         const cartPopup = document.getElementById('cart-popup');
         const btnCekKeranjang = document.querySelector('.btn-cek-keranjang');
         
@@ -505,7 +502,6 @@ function cekDanTerapkanStatusToko() {
             btnCekKeranjang.innerText = 'Toko Tutup';
         }
 
-        // 3. Tampilkan Banner Toko Tutup
         if (!bannerTutup) {
             const container = document.querySelector('.mobile-container');
             if (container) {
@@ -523,7 +519,6 @@ function cekDanTerapkanStatusToko() {
             }
         }
     } else {
-        // Jika Toko BUKA Kembali
         if (bannerTutup) {
             bannerTutup.remove();
         }
@@ -540,4 +535,3 @@ function cekDanTerapkanStatusToko() {
         renderPopupKeranjang();
     }
 }
->>>>>>> 37f1ff35d87754fc6f9f81685c5b529525d4dfdb
