@@ -21,23 +21,30 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSubmit.innerText = 'Memeriksa...';
 
         try {
-            // Panggil Backend API Express.js lokal
-            const response = await fetch('http://localhost:5000/api/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email, password })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
-                throw new Error(data.message || 'Email atau kata sandi salah!');
+            // Pastikan supabaseClient sudah siap dari config.s
+            if (!window.supabaseClient) {
+                throw new Error("Supabase client belum terinisialisasi dengan benar.");
             }
 
-            // Simpan sesi login lokal di browser
-            localStorage.setItem('pegawai_session', JSON.stringify(data.user));
+            // Autentikasi langsung menggunakan Supabase Auth
+            const { data, error } = await window.supabaseClient.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) {
+                throw new Error(error.message || 'Email atau kata sandi salah!');
+            }
+
+            // Simpan sesi login di browser (Session & Local Storage)
+            const userSession = {
+                id: data.user.id,
+                email: data.user.email,
+                role: 'pegawai'
+            };
+
+            sessionStorage.setItem("sabangdor_logged_in", "true");
+            localStorage.setItem('pegawai_session', JSON.stringify(userSession));
 
             // Redirect ke dashboard pegawai
             window.location.href = 'penjual-page/dashboard.html';
@@ -45,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error('Login Error:', err);
             if (errorMessage) {
-                errorMessage.innerText = err.message || 'Terjadi kesalahan sistem atau server lokal belum menyala.';
+                errorMessage.innerText = err.message || 'Terjadi kesalahan sistem.';
                 errorMessage.style.display = 'block';
             } else {
                 alert(err.message || 'Terjadi kesalahan sistem.');
