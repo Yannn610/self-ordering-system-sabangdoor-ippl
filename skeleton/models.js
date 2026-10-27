@@ -1,9 +1,3 @@
-/**
- * File: models/SabangdorPOS.js
- * Deskripsi: Kerangka kelas (Class Stubs) sistem SABANGDOR POS
- * Sesuai dengan perancangan Class Diagram TUBES.
- */
-
 class Profile {
     id;
     username;
