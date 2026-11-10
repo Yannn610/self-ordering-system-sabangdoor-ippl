@@ -5,10 +5,10 @@
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-// Konfigurasi Klien Supabase (Sesuaikan dengan URL & Anon Key Proyek Anda)
-const SUPABASE_URL = 'https://cdzoqbbywzdggawhkmik.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_aIwYjs2YGk7OXqtTQ52NTA_N_l6iSo5';
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Konfigurasi Klien Supabase
+const SUPABASE_URL='https://cdzoqbbywzdggawhkmik.supabase.co'
+const SUPABASE_ANON_KEY='sb_publishable_pLzm_oODzl58pUStbO39fw_r_aox1aN'
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); 
 
 const QRIS_STORAGE_KEY = "sabangdor_custom_qris";
 const DEFAULT_MENU_IMG = "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80";
@@ -119,11 +119,11 @@ async function fetchOrdersFromSupabase() {
             idOrder: `ANT-${String(o.nomor_antrean).padStart(2, '0')}`,
             nomorAntrean: o.nomor_antrean,
             namaPelanggan: o.nama_pembeli,
-            metodeBayar: o.tipe_pembayaran.toUpperCase(),
+            metodeBayar: o.tipe_pembayaran ? o.tipe_pembayaran.toUpperCase() : 'CASH',
             totalHarga: Number(o.total_harga),
             totalHargaFormatted: `Rp${Number(o.total_harga).toLocaleString('id-ID')}`,
-            statusPembayaranDb: o.status_pembayaran, // 'pending' | 'lunas' | 'batal'
-            statusPesananDb: o.status_pesanan,       // 'menunggu' | 'disiapkan' | 'selesai'
+            statusPembayaranDb: o.status_pembayaran,
+            statusPesananDb: o.status_pesanan,
             waktu: new Date(o.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
             tanggal: new Date(o.created_at).toLocaleDateString('id-ID'),
             items: (o.order_items || []).map(i => ({
@@ -838,7 +838,7 @@ async function renderMenuTambahan() {
                     <img src="${escHtml(imgSrc)}" class="stok-thumb" alt="${escHtml(item.nama)}">
                     <div class="mt-info">
                         <div class="stok-name"><b>${escHtml(item.nama)}</b></div>
-                        <div class="mt-meta">${escHtml(item.kategori || 'Umum')} • mulai ${rupiah(hargaMin)}${infoUkuran}${infoAddon}</div>
+                        <div class="mt-meta">${escHtml(item.kategori || 'Umum')} • Mulai ${rupiah(hargaMin)}${infoUkuran}${infoAddon}</div>
                     </div>
                 </div>
                 <div class="mt-actions">
