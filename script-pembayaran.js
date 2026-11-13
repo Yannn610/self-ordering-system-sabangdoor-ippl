@@ -35,12 +35,34 @@ function loadCart() {
     }
 }
 
+const LAST_ORDER_KEY = "sabangdor_last_order";
+
 // Inisialisasi Lifecycle
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     cartData = loadCart();
 
+    // Muat pengaturan bersama (status toko & gambar QRIS) dari Supabase
+    if (window.SabangdorSettings) await window.SabangdorSettings.muat();
+
     if (cartData.length === 0) {
+        // Refresh setelah pesanan sukses: tampilkan lagi nomor antreannya
+        try {
+            const last = JSON.parse(sessionStorage.getItem(LAST_ORDER_KEY));
+            if (last && last.nomor_antrean) {
+                createdOrderData = last;
+                currentStep = "sukses";
+                renderStep();
+                return;
+            }
+        } catch (e) {}
+
         alert("Keranjang belanja kosong! Mengalihkan ke menu utama.");
+        window.location.href = "index.html";
+        return;
+    }
+
+    if (localStorage.getItem("sabangdor_status_toko") === "tutup") {
+        alert("Mohon maaf, toko saat ini sedang TUTUP. Anda akan diarahkan kembali ke halaman utama.");
         window.location.href = "index.html";
         return;
     }
@@ -64,6 +86,7 @@ function renderStep() {
 
     if (currentStep === "checkout") {
         pageTitle.textContent = "Checkout";
+        backBtn.onclick = null;
         backBtn.href = "keranjang.html";
 
         mainContent.innerHTML = `
@@ -126,7 +149,7 @@ function renderStep() {
                 <h3 style="margin:0 0 6px 0; font-size:16px; font-weight:800;">Scan QRIS Sabangdor</h3>
                 <p style="font-size:12px; color:#64748B; margin:0 0 16px 0;">Buka aplikasi e-wallet / mobile banking Anda dan lakukan pembayaran sesuai nominal.</p>
                 <div style="display:inline-block; padding:10px; border:1px solid #CBD5E1; border-radius:12px; background:#fff;">
-                    <img src="${qrisImg}" alt="QRIS Outlet" style="width:200px; height:200px; object-fit:contain; display:block;">
+                    <img src="${esc(qrisImg)}" alt="QRIS Outlet" style="width:200px; height:200px; object-fit:contain; display:block;">
                 </div>
                 <div style="margin-top:16px; padding:10px; background:#FFF1F2; border-radius:10px; border:1px solid #FECDD3;">
                     <span style="font-size:12px; color:#64748B;">Total yang harus dibayar:</span>
@@ -143,6 +166,7 @@ function renderStep() {
         `;
     } else if (currentStep === "sukses") {
         pageTitle.textContent = "Pesanan Dikirim";
+        backBtn.onclick = null;
         backBtn.href = "index.html";
 
         const nomorAntreanFormatted = `ANT-${String(createdOrderData?.nomor_antrean || 1).padStart(2, '0')}`;
@@ -201,7 +225,8 @@ function handleLanjutPembayaran() {
     }
 }
 
-// Eksekusi Insert ke Supabase
+// Simpan pesanan ke Supabase lewat fungsi atomik buat_pesanan()
+// (order + semua item tersimpan dalam 1 transaksi; status pembeli selalu 'pending')
 async function eksekusiSimpanPesanan() {
     const client = window.supabaseClient;
     if (!client) {
@@ -211,69 +236,49 @@ async function eksekusiSimpanPesanan() {
 
     const btnSubmit = document.getElementById("btnSubmitOrder") || document.getElementById("btnKonfirmasiQris");
     if (btnSubmit) {
+        if (btnSubmit.disabled) return; // cegah klik ganda
         btnSubmit.disabled = true;
         btnSubmit.innerText = "Mengirim ke Dapur...";
     }
 
-    const subtotal = cartData.reduce((sum, i) => sum + (Number(i.harga) || 0), 0);
     const tipePembayaranValid = selectedPayment === "qris" ? "qris" : "cash";
 
+    const itemsPayload = cartData.map(item => {
+        const qty = Number(item.qty) || 1;
+        const subtotal = Number(item.harga) || 0;
+        return {
+            nama_item: item.nama || "Menu",
+            varian: item.varian || "",
+            catatan: item.catatan || "",
+            jumlah: qty,
+            harga_satuan: Math.round(subtotal / qty),
+            subtotal: subtotal
+        };
+    });
+
     try {
-        // 1. Simpan Header Pesanan ke tabel `orders`
-        // Kolom nomor_antrean otomatis diisi oleh trigger database
-        const { data: orderData, error: orderError } = await client
-            .from("orders")
-            .insert([{
-                nama_pembeli: namaPembeli,
-                tipe_pembayaran: tipePembayaranValid,
-                status_pembayaran: "pending",
-                status_pesanan: "menunggu",
-                total_harga: subtotal,
-                nomor_antrean: 0
-            }])
-            .select()
-            .single();
-
-        if (orderError) throw orderError;
-
-        const idOrderGenerated = orderData.id_order;
-
-        // 2. Ambil ID menu referensi dari katalog `menus`
-        const { data: katalogMenus } = await client.from("menus").select("id_menu, nama_dimsum");
-        const defaultMenuId = (katalogMenus && katalogMenus.length > 0) ? katalogMenus[0].id_menu : 1;
-
-        // 3. Siapkan payload relasi `order_items`
-        const itemsPayload = cartData.map(item => {
-            let matchedId = defaultMenuId;
-            if (katalogMenus) {
-                const found = katalogMenus.find(m => m.nama_dimsum.toLowerCase().includes((item.nama || "").toLowerCase()));
-                if (found) matchedId = found.id_menu;
-            }
-
-            return {
-                id_order: idOrderGenerated,
-                id_menu: matchedId,
-                jumlah: Number(item.qty) || 1,
-                subtotal: Number(item.harga) || 0
-            };
+        const { data, error } = await client.rpc("buat_pesanan", {
+            p_nama: namaPembeli,
+            p_tipe: tipePembayaranValid,
+            p_items: itemsPayload
         });
 
-        // 4. Simpan Detail Item ke tabel `order_items`
-        const { error: itemsError } = await client
-            .from("order_items")
-            .insert(itemsPayload);
+        if (error) throw error;
+        if (!data || !data.nomor_antrean) throw new Error("Respon server tidak valid.");
 
-        if (itemsError) throw itemsError;
-
-        // 5. Bersihkan keranjang lokal dan alihkan ke tampilan sukses
         localStorage.removeItem(CART_KEY);
-        createdOrderData = orderData;
+        createdOrderData = data;
+        try { sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify(data)); } catch (e) {}
         currentStep = "sukses";
         renderStep();
 
     } catch (err) {
         console.error("Gagal memproses pesanan ke Supabase:", err);
-        alert("Gagal memproses pesanan: " + (err.message || err));
+        let pesan = err.message || String(err);
+        if (/buat_pesanan/i.test(pesan) && /(function|schema cache|not find)/i.test(pesan)) {
+            pesan = "Database belum diperbarui. Jalankan supabase/migration_perbaikan.sql di Supabase SQL Editor.";
+        }
+        alert("Gagal memproses pesanan: " + pesan);
         if (btnSubmit) {
             btnSubmit.disabled = false;
             btnSubmit.innerText = "Coba Lagi";

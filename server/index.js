@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
@@ -6,14 +7,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Konfigurasi Koneksi PostgreSQL Lokal
-// Konfigurasi Koneksi PostgreSQL Lokal
+// Konfigurasi koneksi PostgreSQL dari file .env (lihat .env.example) - JANGAN hardcode password
 const pool = new Pool({
-    user: 'postgres',              // Username bawaan server PostgreSQL
-    host: 'localhost',
-    database: 'impal',             // Nama database di pgAdmin
-    password: 'dokja', // <-- Masukkan password pgAdmin Anda di sini
-    port: 5432,                    // Port default PostgreSQL
+    user: process.env.DB_USER || 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    database: process.env.DB_NAME || 'impal',
+    password: process.env.DB_PASSWORD,
+    port: Number(process.env.DB_PORT) || 5432,
 });
 
 // Tes Koneksi ke Database saat server dinyalakan
@@ -119,7 +119,7 @@ app.get('/api/orders', async (req, res) => {
                            'id_detail', od.id_detail, 
                            'jumlah', od.jumlah, 
                            'subtotal', od.subtotal, 
-                           'menus', json_build_object('nama_dimsum', m.nama_dimsum)
+                           'nama_item', COALESCE(od.nama_item, m.nama_dimsum), 'varian', od.varian, 'catatan', od.catatan, 'menus', json_build_object('nama_dimsum', COALESCE(od.nama_item, m.nama_dimsum))
                        )
                    ) as order_items
             FROM orders o
@@ -161,10 +161,10 @@ app.get('/api/recommendations', async (req, res) => {
         let baskets = [];
         try {
             const query = `
-                SELECT o.id_order, array_agg(m.nama_dimsum) as items
+                SELECT o.id_order, array_agg(COALESCE(od.nama_item, m.nama_dimsum)) as items
                 FROM orders o
                 JOIN order_items od ON o.id_order = od.id_order
-                JOIN menus m ON od.id_menu = m.id_menu
+                LEFT JOIN menus m ON od.id_menu = m.id_menu
                 GROUP BY o.id_order;
             `;
             const result = await pool.query(query);
@@ -192,10 +192,10 @@ app.get('/api/recommend', async (req, res) => {
 
         try {
             const query = `
-                SELECT o.id_order, array_agg(m.nama_dimsum) as items
+                SELECT o.id_order, array_agg(COALESCE(od.nama_item, m.nama_dimsum)) as items
                 FROM orders o
                 JOIN order_items od ON o.id_order = od.id_order
-                JOIN menus m ON od.id_menu = m.id_menu
+                LEFT JOIN menus m ON od.id_menu = m.id_menu
                 GROUP BY o.id_order;
             `;
             const result = await pool.query(query);

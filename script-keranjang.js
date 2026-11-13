@@ -181,10 +181,13 @@ function showToast(text) {
 }
 
 // Tambahkan di awal skrip halaman keranjang.html
-if (localStorage.getItem('sabangdor_status_toko') === 'tutup') {
-    alert("Mohon maaf, toko saat ini sedang TUTUP. Anda akan diarahkan kembali ke halaman utama.");
-    window.location.href = 'index.html';
-}
+(async function cekTokoTutup() {
+    if (window.SabangdorSettings) await window.SabangdorSettings.muat();
+    if (localStorage.getItem('sabangdor_status_toko') === 'tutup') {
+        alert("Mohon maaf, toko saat ini sedang TUTUP. Anda akan diarahkan kembali ke halaman utama.");
+        window.location.href = 'index.html';
+    }
+})();
 
 // ===== AI Cross-Selling Apriori =====
 // ===== AI Cross-Selling Apriori (Real Data Only) =====
@@ -196,37 +199,21 @@ async function renderAiCrossSelling() {
     const cartNames = cart.map(i => i.nama || "");
     let recommendations = [];
 
-    // 1. Coba ambil dari backend Express jika aktif
-    try {
-        const base = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '/api';
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1000);
-        const queryCart = cartNames.join(",");
-        const res = await fetch(`${base}/recommend?cart=${encodeURIComponent(queryCart)}`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
-                recommendations = data;
-            }
-        }
-    } catch (e) {
-        // Backend offline / serverless
-    }
-
-    // 2. Analisis langsung di browser menggunakan AprioriEngine dari riwayat transaksi nyata (Supabase / Local)
-    if (recommendations.length === 0 && typeof window !== 'undefined' && window.AprioriEngine) {
+    // Analisis Apriori di browser dari riwayat transaksi nyata (Supabase / lokal).
+    // Model dihitung sekali lalu di-cache agar tidak query ulang setiap jumlah berubah.
+    if (window.AprioriEngine) {
         try {
-            let baskets = [];
-            if (window.supabaseClient) {
-                baskets = await window.AprioriEngine.getSupabaseTransactions(window.supabaseClient);
+            if (!window._aprioriRulesCache) {
+                let baskets = [];
+                if (window.supabaseClient) {
+                    baskets = await window.AprioriEngine.getSupabaseTransactions(window.supabaseClient);
+                }
+                if (!baskets || baskets.length === 0) {
+                    baskets = window.AprioriEngine.getRealTransactions();
+                }
+                window._aprioriRulesCache = window.AprioriEngine.trainApriori(baskets).rules;
             }
-            if (!baskets || baskets.length === 0) {
-                baskets = window.AprioriEngine.getRealTransactions();
-            }
-            const { rules } = window.AprioriEngine.trainApriori(baskets);
-            recommendations = window.AprioriEngine.recommend(rules, cartNames, 2);
+            recommendations = window.AprioriEngine.recommend(window._aprioriRulesCache, cartNames, 2);
         } catch (err) {
             console.warn('Gagal menghitung cross-selling:', err);
         }
@@ -284,4 +271,4 @@ function tambahItemRekomendasi(index) {
 }
 
 // ===== Inisialisasi Awal =====
-render();//zero
+render();

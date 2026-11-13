@@ -3,24 +3,13 @@
  * Deskripsi: Mengelola manajemen stok, verifikasi pembayaran, kitchen display, menu tambahan, dan POS kasir secara real-time menggunakan Supabase.
  */
 
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+// Klien Supabase dibuat oleh ../config.js (window.supabaseClient) -> 1 sesi login yang sama
+const supabase = window.supabaseClient;
 
-// Konfigurasi Klien Supabase
-const SUPABASE_URL='https://cdzoqbbywzdggawhkmik.supabase.co'
-const SUPABASE_ANON_KEY='sb_publishable_pLzm_oODzl58pUStbO39fw_r_aox1aN'
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); 
-
-const QRIS_STORAGE_KEY = "sabangdor_custom_qris";
 const DEFAULT_MENU_IMG = "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80";
 
-const masterMenuSabangdor = [
-    { id: 'mentai-cheese', nama: 'Mentai Cheese', harga: 15000, status: 'tersedia', img: DEFAULT_MENU_IMG },
-    { id: 'mentai-tanuki', nama: 'Mentai Tanuki', harga: 15000, status: 'tersedia', img: DEFAULT_MENU_IMG },
-    { id: 'mentai-ori', nama: 'Mentai Ori', harga: 13000, status: 'tersedia', img: DEFAULT_MENU_IMG },
-    { id: 'mentai-mix', nama: 'Mentai Mix', harga: 26000, status: 'tersedia', img: DEFAULT_MENU_IMG },
-    { id: 'dimsum-aja', nama: 'Dimsum aja', harga: 26000, status: 'tersedia', img: DEFAULT_MENU_IMG },
-    { id: 'bakpao', nama: 'Bakpao', harga: 26000, status: 'tersedia', img: DEFAULT_MENU_IMG }
-];
+// Menu bawaan (sesuai judul kartu di halaman pembeli) untuk pengaturan stok habis/tersedia
+const MENU_BAWAAN = ['Mentai Ori', 'Mentai Cheese', 'Mentai Tanuki', 'Mentai Mix', 'Dimsum aja', 'Bakpao'];
 
 let currentSec = 'dashboard';
 let activeKanbanFilter = 'proses-masak';
@@ -29,29 +18,72 @@ let pesananSupabase = [];
 // ==========================================
 // AUTENTIKASI & INITIALIZATION
 // ==========================================
-function checkAuth() {
-    const isLoggedIn = sessionStorage.getItem("sabangdor_logged_in") || localStorage.getItem('pegawai_session');
-    if (!isLoggedIn) {
-        window.location.href = '../login-pegawai.html';
-    }
-}
-
-function handleLogout() {
+function bersihkanSesiLokal() {
     sessionStorage.removeItem("sabangdor_logged_in");
     sessionStorage.removeItem("sabangdor_user_email");
     localStorage.removeItem('pegawai_session');
+}
+
+// Wajib punya sesi Supabase yang valid: RLS hanya mengizinkan role 'authenticated'
+// untuk mengubah pesanan/menu. Flag di localStorage saja TIDAK cukup.
+async function checkAuth() {
+    try {
+        if (supabase) {
+            const { data } = await supabase.auth.getSession();
+            if (data && data.session) return true;
+        }
+    } catch (e) {
+        console.warn('Gagal membaca sesi login:', e);
+    }
+    bersihkanSesiLokal();
+    window.location.href = '../login-pegawai.html';
+    return false;
+}
+
+async function handleLogout() {
+    try { if (supabase) await supabase.auth.signOut(); } catch (e) {}
+    bersihkanSesiLokal();
     window.location.href = '../login-pegawai.html';
 }
 
+let pesanGalatTerakhir = '';
+function tampilkanGalat(pesan) {
+    let el = document.getElementById('banner-galat-db');
+    if (!pesan) { if (el) el.remove(); pesanGalatTerakhir = ''; return; }
+    if (pesan === pesanGalatTerakhir && el) return;
+    pesanGalatTerakhir = pesan;
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'banner-galat-db';
+        el.style.cssText = 'background:#FEF2F2;border:1px solid #E11D48;color:#B91C1C;padding:10px 12px;border-radius:10px;font-size:12px;font-weight:700;margin-bottom:10px;';
+        const body = document.querySelector('.app-body');
+        if (body) body.insertBefore(el, body.firstChild);
+    }
+    el.textContent = pesan;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-    checkAuth();
-    updateUIStatusToko();
+    if (!supabase) {
+        alert('Koneksi Supabase belum siap. Periksa ../config.js dan koneksi internet.');
+        return;
+    }
+    if (!(await checkAuth())) return;
+
+    supabase.auth.onAuthStateChange((event) => {
+        if (event === 'SIGNED_OUT') {
+            bersihkanSesiLokal();
+            window.location.href = '../login-pegawai.html';
+        }
+    });
+
+    await muatStatusToko();
 
     const firstTab = document.querySelectorAll('.tab-item')[0];
     navigate('dashboard', firstTab);
 
-    // Auto-refresh data setiap 3 detik secara real-time
+    // Auto-refresh setiap 3 detik (hanya saat tab terlihat)
     setInterval(async () => {
+        if (document.hidden) return;
         await checkAndRenderAuto();
     }, 3000);
 });
@@ -71,7 +103,10 @@ async function fetchCustomMenusFromSupabase() {
     }
 }
 
+let galatDbTerakhir = '';
+
 async function saveCustomMenuToSupabase(menuData) {
+    galatDbTerakhir = '';
     try {
         const { error } = await supabase
             .from('menu_custom')
@@ -90,6 +125,7 @@ async function saveCustomMenuToSupabase(menuData) {
         return true;
     } catch (err) {
         console.error("Gagal simpan menu custom ke Supabase:", err);
+        galatDbTerakhir = err.message || String(err);
         return false;
     }
 }
@@ -101,9 +137,12 @@ async function deleteCustomMenuFromSupabase(menuId) {
         return true;
     } catch (err) {
         console.error("Gagal hapus menu custom dari Supabase:", err);
+        galatDbTerakhir = err.message || String(err);
         return false;
     }
 }
+
+function pad2(n) { return String(n).padStart(2, '0'); }
 
 async function fetchOrdersFromSupabase() {
     try {
@@ -113,39 +152,102 @@ async function fetchOrdersFromSupabase() {
             .order('created_at', { ascending: false });
 
         if (error) throw error;
+        tampilkanGalat('');
 
-        return (data || []).map(o => ({
-            db_id_order: o.id_order,
-            idOrder: `ANT-${String(o.nomor_antrean).padStart(2, '0')}`,
-            nomorAntrean: o.nomor_antrean,
-            namaPelanggan: o.nama_pembeli,
-            metodeBayar: o.tipe_pembayaran ? o.tipe_pembayaran.toUpperCase() : 'CASH',
-            totalHarga: Number(o.total_harga),
-            totalHargaFormatted: `Rp${Number(o.total_harga).toLocaleString('id-ID')}`,
-            statusPembayaranDb: o.status_pembayaran,
-            statusPesananDb: o.status_pesanan,
-            waktu: new Date(o.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-            tanggal: new Date(o.created_at).toLocaleDateString('id-ID'),
-            items: (o.order_items || []).map(i => ({
-                nama: i.nama_item,
-                varian: i.varian,
-                catatan: i.catatan,
-                qty: i.jumlah,
-                hargaSatuan: Number(i.harga_satuan),
-                totalHargaItem: Number(i.subtotal)
-            }))
-        }));
+        return (data || []).map(o => {
+            const d = new Date(o.created_at);
+            return {
+                db_id_order: o.id_order,
+                idOrder: `ANT-${String(o.nomor_antrean).padStart(2, '0')}`,
+                nomorAntrean: o.nomor_antrean,
+                namaPelanggan: o.nama_pembeli,
+                metodeBayar: o.tipe_pembayaran ? o.tipe_pembayaran.toUpperCase() : 'CASH',
+                totalHarga: Number(o.total_harga),
+                totalHargaFormatted: `Rp${Number(o.total_harga).toLocaleString('id-ID')}`,
+                statusPembayaranDb: o.status_pembayaran,
+                statusPesananDb: o.status_pesanan,
+                waktu: d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                tanggal: `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`,
+                tanggalKey: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`,
+                items: (o.order_items || []).map(i => ({
+                    nama: i.nama_item || 'Menu',
+                    varian: i.varian || '',
+                    catatan: i.catatan || '',
+                    qty: i.jumlah,
+                    hargaSatuan: Number(i.harga_satuan) || 0,
+                    totalHargaItem: Number(i.subtotal) || 0
+                }))
+            };
+        });
     } catch (err) {
         console.error("Gagal ambil pesanan dari Supabase:", err);
+        tampilkanGalat('Gagal memuat pesanan: ' + (err.message || err) + ' (cek koneksi / login ulang)');
+        return null;
+    }
+}
+
+// ----- Pengaturan bersama (tabel app_settings) -----
+async function getSetting(key, fallback = null) {
+    try {
+        const { data, error } = await supabase.from('app_settings').select('value').eq('key', key).maybeSingle();
+        if (error) throw error;
+        return data && data.value != null ? data.value : fallback;
+    } catch (err) {
+        console.warn('Gagal membaca pengaturan', key, err.message || err);
+        return fallback;
+    }
+}
+
+async function setSetting(key, value) {
+    const { error } = await supabase
+        .from('app_settings')
+        .upsert({ key: key, value: value, updated_at: new Date().toISOString() });
+    if (error) throw error;
+}
+
+async function ambilMenuHabisBawaan() {
+    try {
+        const arr = JSON.parse(await getSetting('menu_habis', '[]'));
+        return Array.isArray(arr) ? arr : [];
+    } catch (e) {
         return [];
     }
 }
 
 async function checkAndRenderAuto() {
-    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'SELECT')) {
+    const aktif = document.activeElement;
+    if (aktif && (aktif.tagName === 'INPUT' || aktif.tagName === 'TEXTAREA' || aktif.tagName === 'SELECT')) {
+        return;
+    }
+    // Halaman stok/QRIS & form menu tidak di-render ulang otomatis
+    // (agar dialog pilih file & isian form tidak hilang); hanya badge yang diperbarui.
+    if (currentSec === 'dashboard' || currentSec === 'menu') {
+        await perbaruiBadgeBayar();
         return;
     }
     await renderCurrentSection();
+}
+
+async function perbaruiBadgeBayar() {
+    try {
+        const { count, error } = await supabase
+            .from('orders')
+            .select('id_order', { count: 'exact', head: true })
+            .eq('status_pembayaran', 'pending');
+        if (error) throw error;
+        tampilBadgeBayar(count || 0);
+    } catch (e) { /* abaikan */ }
+}
+
+function tampilBadgeBayar(jumlah) {
+    const badgeEl = document.getElementById('badge-notif-bayar');
+    if (!badgeEl) return;
+    if (jumlah > 0) {
+        badgeEl.style.display = 'inline-block';
+        badgeEl.innerText = jumlah;
+    } else {
+        badgeEl.style.display = 'none';
+    }
 }
 
 function navigate(secKey, el) {
@@ -177,26 +279,20 @@ function navigate(secKey, el) {
 }
 
 async function renderCurrentSection(force = false) {
-    pesananSupabase = await fetchOrdersFromSupabase();
+    if (currentSec === 'dashboard') { await perbaruiBadgeBayar(); await renderStokMenu(); return; }
+    if (currentSec === 'menu') { await perbaruiBadgeBayar(); await renderMenuTambahan(); return; }
 
-    let semuaPesanan = pesananSupabase;
-    let riwayat = pesananSupabase.filter(p => p.statusPesananDb === 'selesai');
+    const hasil = await fetchOrdersFromSupabase();
+    if (hasil === null) return; // gagal ambil data: pertahankan tampilan terakhir
+    pesananSupabase = hasil;
 
-    let pendingPay = semuaPesanan.filter(p => p.statusPembayaranDb === 'pending').length;
-    const badgeEl = document.getElementById('badge-notif-bayar');
-    if (badgeEl) {
-        if (pendingPay > 0) {
-            badgeEl.style.display = 'inline-block';
-            badgeEl.innerText = pendingPay;
-        } else {
-            badgeEl.style.display = 'none';
-        }
-    }
+    const semuaPesanan = pesananSupabase;
+    const riwayat = pesananSupabase.filter(p => p.statusPesananDb === 'selesai');
 
-    if (currentSec === 'dashboard') await renderStokMenu();
-    else if (currentSec === 'pembayaran') renderPembayaran(semuaPesanan, force);
+    tampilBadgeBayar(semuaPesanan.filter(p => p.statusPembayaranDb === 'pending').length);
+
+    if (currentSec === 'pembayaran') renderPembayaran(semuaPesanan, force);
     else if (currentSec === 'pantau') renderKitchenDisplay(semuaPesanan, riwayat);
-    else if (currentSec === 'menu') await renderMenuTambahan();
     else if (currentSec === 'riwayat') renderRiwayat(riwayat);
 }
 
@@ -207,29 +303,50 @@ async function renderStokMenu() {
     const grid = document.getElementById('grid-stok-menu');
     if (!grid) return;
 
-    let customQrisImg = localStorage.getItem(QRIS_STORAGE_KEY);
+    const customQrisImg = await getSetting('qris_image', '');
+    const habisBawaan = await ambilMenuHabisBawaan();
 
     let html = `
         <div class="card">
             <div class="card-title">📷 Setting QRIS Outlet</div>
-            <div class="card-sub">Unggah gambar QRIS untuk halaman checkout pembeli</div>
-            
+            <div class="card-sub">Gambar QRIS ini tampil di halaman checkout semua pembeli</div>
+
             <div class="upload-wrapper">
                 <button type="button" class="btn-upload-custom" onclick="document.getElementById('inputFileQris').click()">
                     ➕ Pilih Gambar QRIS
                 </button>
                 <input type="file" id="inputFileQris" accept="image/*" style="display:none;">
             </div>
+            <div id="qrisMsg" class="mt-hint" style="margin-top:6px;"></div>
 
             ${customQrisImg ? `
                 <div class="qris-preview-container">
                     <span style="font-size:11px; font-weight:800; color:#10B981;">✓ Gambar QRIS Aktif</span><br>
-                    <img src="${customQrisImg}" class="qris-preview-img" alt="QRIS Toko">
+                    <img src="${escHtml(customQrisImg)}" class="qris-preview-img" alt="QRIS Toko">
+                    <div><button type="button" class="mt-btn-small danger" style="margin-top:6px;" onclick="hapusQris()">Hapus QRIS</button></div>
                 </div>
             ` : ''}
         </div>
-        <div class="card-title" style="margin-top:10px;">Daftar Stok Menu Custom & Tambahan (Supabase)</div>
+
+        <div class="card-title" style="margin-top:10px;">Stok Menu Bawaan</div>
     `;
+
+    MENU_BAWAAN.forEach(nama => {
+        const isHabis = habisBawaan.some(n => n.toLowerCase() === nama.toLowerCase());
+        html += `
+            <div class="stok-card">
+                <div class="stok-left">
+                    <img src="${escHtml(DEFAULT_MENU_IMG)}" class="stok-thumb" alt="${escHtml(nama)}">
+                    <span class="stok-name">${escHtml(nama)}</span>
+                </div>
+                <button class="btn-toggle-stok ${isHabis ? 'empty' : 'ready'}" data-nama="${escHtml(nama)}" onclick="toggleStokBawaan(this.dataset.nama)">
+                    ${isHabis ? '🔴 HABIS' : '🟢 TERSEDIA'}
+                </button>
+            </div>
+        `;
+    });
+
+    html += `<div class="card-title" style="margin-top:14px;">Stok Menu Tambahan (Custom)</div>`;
 
     const customList = await fetchCustomMenusFromSupabase();
     if (customList.length === 0) {
@@ -258,15 +375,62 @@ async function renderStokMenu() {
     if (fileInput) {
         fileInput.addEventListener("change", function (e) {
             const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function (evt) {
-                    localStorage.setItem(QRIS_STORAGE_KEY, evt.target.result);
-                    renderStokMenu();
-                };
-                reader.readAsDataURL(file);
-            }
+            if (file) simpanQrisDariFile(file);
         });
+    }
+}
+
+// Perkecil gambar QRIS lalu simpan ke database (dibaca pembeli di halaman checkout)
+function simpanQrisDariFile(file) {
+    const msg = document.getElementById('qrisMsg');
+    if (msg) msg.textContent = 'Menyimpan gambar QRIS...';
+
+    const reader = new FileReader();
+    reader.onload = function (evt) {
+        const img = new Image();
+        img.onload = async function () {
+            const maxSide = 700;
+            const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            try {
+                await setSetting('qris_image', canvas.toDataURL('image/png'));
+                await renderStokMenu();
+            } catch (err) {
+                console.error('Gagal simpan QRIS:', err);
+                if (msg) msg.textContent = 'Gagal menyimpan QRIS: ' + (err.message || err);
+            }
+        };
+        img.onerror = function () { if (msg) msg.textContent = 'File gambar tidak bisa dibaca.'; };
+        img.src = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+async function hapusQris() {
+    if (!confirm('Hapus gambar QRIS? Pembeli akan melihat gambar bawaan sampai Anda mengunggah yang baru.')) return;
+    try {
+        await setSetting('qris_image', '');
+        await renderStokMenu();
+    } catch (err) {
+        alert('Gagal menghapus QRIS: ' + (err.message || err));
+    }
+}
+
+async function toggleStokBawaan(nama) {
+    try {
+        const daftar = await ambilMenuHabisBawaan();
+        const idx = daftar.findIndex(n => n.toLowerCase() === String(nama).toLowerCase());
+        if (idx > -1) daftar.splice(idx, 1); else daftar.push(nama);
+        await setSetting('menu_habis', JSON.stringify(daftar));
+        await renderStokMenu();
+    } catch (err) {
+        alert('Gagal mengubah stok: ' + (err.message || err));
     }
 }
 
@@ -274,9 +438,9 @@ async function toggleStokCustom(menuId) {
     const customList = await fetchCustomMenusFromSupabase();
     const m = customList.find(x => String(x.id) === String(menuId));
     if (!m) return;
-    
-    const statusHabisBaru = !m.habis;
-    await saveCustomMenuToSupabase({ ...m, habis: statusHabisBaru });
+
+    const ok = await saveCustomMenuToSupabase({ ...m, img: m.img_url, habis: !m.habis });
+    if (!ok) alert('Gagal mengubah stok: ' + (galatDbTerakhir || 'periksa koneksi / login ulang'));
     await renderStokMenu();
 }
 
@@ -286,6 +450,28 @@ function getItemSubtotal(i) {
     return 0;
 }
 
+// Detail varian & catatan item (wajib terlihat jelas oleh dapur)
+function detailItemHtml(i) {
+    let h = '';
+    if (i.varian) h += `<div style="font-size:0.72rem; color:var(--text-muted); font-weight:600;">${escHtml(i.varian)}</div>`;
+    if (i.catatan) h += `<div style="font-size:0.72rem; color:#B45309; font-weight:700;">📝 ${escHtml(i.catatan)}</div>`;
+    return h;
+}
+
+// Update status pesanan dan pastikan benar-benar ada baris yang berubah
+// (RLS memblokir tanpa error jika sesi login sudah habis)
+async function updateOrderRow(dbIdOrder, perubahan) {
+    const { data, error } = await supabase
+        .from('orders')
+        .update(perubahan)
+        .eq('id_order', dbIdOrder)
+        .select('id_order');
+    if (error) throw error;
+    if (!data || data.length === 0) {
+        throw new Error('Perubahan ditolak database. Sesi login mungkin habis, silakan login ulang.');
+    }
+}
+
 // ==========================================
 // 2. VERIFIKASI PEMBAYARAN
 // ==========================================
@@ -293,7 +479,7 @@ function renderPembayaran(pesananList, force = false) {
     const container = document.getElementById('container-pembayaran');
     if (!container) return;
 
-    let pending = pesananList.filter(p => p.statusPembayaranDb === 'pending');
+    const pending = pesananList.filter(p => p.statusPembayaranDb === 'pending');
 
     if (pending.length === 0) {
         container.innerHTML = `<div class="empty-info">Tidak ada pembayaran menunggu verifikasi.</div>`;
@@ -302,11 +488,11 @@ function renderPembayaran(pesananList, force = false) {
 
     let html = '';
     pending.forEach((order) => {
-        let itemList = order.items.map(i => {
+        const itemList = order.items.map(i => {
             const itemHarga = getItemSubtotal(i);
             return `
                 <li class="order-item-row">
-                    <div><span><b>${i.qty || 1}x</b> ${i.nama}</span></div>
+                    <div><span><b>${i.qty || 1}x</b> ${escHtml(i.nama)}</span>${detailItemHtml(i)}</div>
                     <b>Rp${itemHarga.toLocaleString('id-ID')}</b>
                 </li>
             `;
@@ -317,18 +503,19 @@ function renderPembayaran(pesananList, force = false) {
         html += `
             <div class="order-card-merchant">
                 <div class="order-head">
-                    <span class="order-id-txt">#${order.idOrder} (${order.namaPelanggan})</span>
-                    <span class="order-badge-pay ${isTunais ? 'tag-cash' : 'tag-qris'}">${order.metodeBayar}</span>
+                    <span class="order-id-txt">#${escHtml(order.idOrder)} (${escHtml(order.namaPelanggan)})</span>
+                    <span class="order-badge-pay ${isTunais ? 'tag-cash' : 'tag-qris'}">${escHtml(order.metodeBayar)}</span>
                 </div>
                 <div style="font-size:0.75rem; color:var(--text-muted);">
-                    ${order.waktu} WIB | Total Tagihan: <b style="color:var(--primary-red); font-size:0.85rem;">${order.totalHargaFormatted}</b>
+                    ${escHtml(order.waktu)} WIB | Total Tagihan: <b style="color:var(--primary-red); font-size:0.85rem;">${escHtml(order.totalHargaFormatted)}</b>
                 </div>
                 <ul class="order-item-list">${itemList}</ul>
                 <div class="btn-group">
-                    <button class="btn-primary-merchant" onclick="konfirmasiPembayaran(${order.db_id_order})">
+                    <button class="btn-primary-merchant" onclick="konfirmasiPembayaran(${Number(order.db_id_order)})">
                         ${isTunais ? 'Terima Tunai & Kirim Dapur' : 'Verifikasi QRIS & Kirim Dapur'}
                     </button>
-                    <button class="btn-outline-merchant" onclick="cetakStrukLangsungById(${order.db_id_order})">🖨️ Struk</button>
+                    <button class="btn-outline-merchant" onclick="cetakStrukLangsungById(${Number(order.db_id_order)})">🖨️ Struk</button>
+                    <button class="btn-outline-merchant" style="color:#B91C1C;" onclick="batalkanPesanan(${Number(order.db_id_order)})">Batalkan</button>
                 </div>
             </div>
         `;
@@ -338,16 +525,21 @@ function renderPembayaran(pesananList, force = false) {
 
 async function konfirmasiPembayaran(dbIdOrder) {
     try {
-        const { error } = await supabase
-            .from('orders')
-            .update({ status_pembayaran: 'lunas' })
-            .eq('id_order', dbIdOrder);
-
-        if (error) throw error;
+        await updateOrderRow(dbIdOrder, { status_pembayaran: 'lunas', status_pesanan: 'disiapkan' });
         await renderCurrentSection(true);
     } catch (err) {
         console.error("Gagal update status pembayaran ke Supabase:", err);
-        alert("Gagal memverifikasi pembayaran.");
+        alert("Gagal memverifikasi pembayaran: " + (err.message || err));
+    }
+}
+
+async function batalkanPesanan(dbIdOrder) {
+    if (!confirm('Batalkan pesanan ini? (misalnya pembeli tidak jadi bayar)')) return;
+    try {
+        await updateOrderRow(dbIdOrder, { status_pembayaran: 'batal', status_pesanan: 'selesai' });
+        await renderCurrentSection(true);
+    } catch (err) {
+        alert("Gagal membatalkan pesanan: " + (err.message || err));
     }
 }
 
@@ -357,7 +549,7 @@ async function konfirmasiPembayaran(dbIdOrder) {
 function switchKitchenTab(type, evt) {
     activeKanbanFilter = type;
     document.querySelectorAll('.k-tab').forEach(b => b.classList.remove('active'));
-    if (evt && evt.target) evt.target.classList.add('active');
+    if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
     renderCurrentSection(true);
 }
 
@@ -365,15 +557,18 @@ function renderKitchenDisplay(pesananList, riwayatList) {
     const container = document.getElementById('kanban-content-mobile');
     if (!container) return;
 
-    let listProsesMasak = pesananList.filter(p => p.statusPembayaranDb === 'lunas' && p.statusPesananDb !== 'selesai');
-    let listSelesai = pesananList.filter(p => p.statusPesananDb === 'selesai');
+    // Urutan dapur: pesanan terlama dikerjakan lebih dulu
+    const listProsesMasak = pesananList
+        .filter(p => p.statusPembayaranDb === 'lunas' && p.statusPesananDb !== 'selesai')
+        .slice().reverse();
+    const listSelesai = pesananList.filter(p => p.statusPesananDb === 'selesai' && p.statusPembayaranDb === 'lunas');
 
     const countProsesEl = document.getElementById('count-terkirim') || document.getElementById('count-proses-masak');
     const countSelesaiEl = document.getElementById('count-selesai');
     if (countProsesEl) countProsesEl.innerText = listProsesMasak.length;
     if (countSelesaiEl) countSelesaiEl.innerText = listSelesai.length;
 
-    let filtered = activeKanbanFilter === 'proses-masak' ? listProsesMasak : listSelesai;
+    const filtered = activeKanbanFilter === 'proses-masak' ? listProsesMasak : listSelesai;
 
     if (filtered.length === 0) {
         container.innerHTML = `<div class="empty-info">Tidak ada pesanan dalam kategori ini.</div>`;
@@ -382,19 +577,21 @@ function renderKitchenDisplay(pesananList, riwayatList) {
 
     let html = '';
     filtered.forEach((order) => {
-        let itemList = order.items ? order.items.map(i => `<li><b>${i.qty || 1}x ${i.nama}</b></li>`).join('') : '';
+        const itemList = order.items.map(i =>
+            `<li><b>${i.qty || 1}x ${escHtml(i.nama)}</b>${detailItemHtml(i)}</li>`
+        ).join('');
 
         html += `
             <div class="order-card-merchant">
                 <div class="order-head">
-                    <span class="order-id-txt">#${order.idOrder} (${order.namaPelanggan})</span>
-                    <span style="font-size:0.75rem; color:var(--text-muted);">${order.waktu} WIB</span>
+                    <span class="order-id-txt">#${escHtml(order.idOrder)} (${escHtml(order.namaPelanggan)})</span>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">${escHtml(order.waktu)} WIB</span>
                 </div>
                 <ul class="order-item-list">${itemList}</ul>
         `;
 
         if (activeKanbanFilter === 'proses-masak') {
-            html += `<button class="btn-primary-merchant" style="background:#3B82F6;" onclick="tandaiSelesaiDapur(${order.db_id_order})">Selesai & Sajikan</button></div>`;
+            html += `<button class="btn-primary-merchant" style="background:#3B82F6;" onclick="tandaiSelesaiDapur(${Number(order.db_id_order)})">Selesai & Sajikan</button></div>`;
         } else {
             html += `<p style="font-size:0.8rem; color:var(--green-text); font-weight:800;">Status: Selesai & Disajikan</p></div>`;
         }
@@ -405,16 +602,11 @@ function renderKitchenDisplay(pesananList, riwayatList) {
 
 async function tandaiSelesaiDapur(dbIdOrder) {
     try {
-        const { error } = await supabase
-            .from('orders')
-            .update({ status_pesanan: 'selesai' })
-            .eq('id_order', dbIdOrder);
-
-        if (error) throw error;
+        await updateOrderRow(dbIdOrder, { status_pesanan: 'selesai' });
         await renderCurrentSection(true);
     } catch (err) {
         console.error("Gagal update status selesai ke Supabase:", err);
-        alert("Gagal menyelesaikan pesanan.");
+        alert("Gagal menyelesaikan pesanan: " + (err.message || err));
     }
 }
 
@@ -433,27 +625,24 @@ function renderRiwayat(riwayatList) {
     const filterInput = document.getElementById('filterTanggal');
     if (!container) return;
 
-    let selectedDate = filterInput ? filterInput.value : '';
+    // Hanya transaksi yang benar-benar lunas yang dihitung sebagai omzet
+    const lunasList = riwayatList.filter(p => p.statusPembayaranDb === 'lunas');
+
+    const selectedDate = filterInput ? filterInput.value : ''; // format yyyy-mm-dd
     let formattedSelectedDate = '';
     if (selectedDate) {
         const parts = selectedDate.split('-');
-        if (parts.length === 3) {
-            formattedSelectedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-        }
+        if (parts.length === 3) formattedSelectedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
 
-    let filteredList = riwayatList;
-    if (formattedSelectedDate) {
-        filteredList = riwayatList.filter(item => item.tanggal === formattedSelectedDate);
-    }
-
-    let totalOmzet = filteredList.reduce((sum, item) => sum + (item.totalHarga || 0), 0);
+    const filteredList = selectedDate ? lunasList.filter(item => item.tanggalKey === selectedDate) : lunasList;
+    const totalOmzet = filteredList.reduce((sum, item) => sum + (item.totalHarga || 0), 0);
 
     if (banner) {
-        let labelOmzet = formattedSelectedDate ? `Omzet Tanggal ${formattedSelectedDate}` : 'Total Omzet Keseluruhan';
+        const labelOmzet = formattedSelectedDate ? `Omzet Tanggal ${formattedSelectedDate}` : 'Total Omzet Keseluruhan';
         banner.innerHTML = `
             <div class="omzet-banner">
-                <p>${labelOmzet}</p>
+                <p>${labelOmzet} (${filteredList.length} transaksi)</p>
                 <h2>Rp${totalOmzet.toLocaleString('id-ID')}</h2>
             </div>
         `;
@@ -469,12 +658,12 @@ function renderRiwayat(riwayatList) {
         html += `
             <div class="order-card-merchant" style="flex-direction:row; justify-content:space-between; align-items:center;">
                 <div>
-                    <div style="font-weight:800; font-size:0.85rem;">#${item.idOrder} (${item.namaPelanggan} - ${item.metodeBayar})</div>
-                    <div style="font-size:0.75rem; color:var(--text-muted);">${item.tanggal} ${item.waktu} WIB</div>
+                    <div style="font-weight:800; font-size:0.85rem;">#${escHtml(item.idOrder)} (${escHtml(item.namaPelanggan)} - ${escHtml(item.metodeBayar)})</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">${escHtml(item.tanggal)} ${escHtml(item.waktu)} WIB</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <b style="color:var(--green-text); font-size:0.85rem;">${item.totalHargaFormatted}</b>
-                    <button class="btn-outline-merchant" style="padding:6px 10px; font-size:0.75rem;" onclick="cetakStrukLangsungById(${item.db_id_order})">🖨️</button>
+                    <b style="color:var(--green-text); font-size:0.85rem;">${escHtml(item.totalHargaFormatted)}</b>
+                    <button class="btn-outline-merchant" style="padding:6px 10px; font-size:0.75rem;" onclick="cetakStrukLangsungById(${Number(item.db_id_order)})">🖨️</button>
                 </div>
             </div>
         `;
@@ -501,7 +690,7 @@ function cetakStrukLangsung(order) {
 
     const itemsHtml = order.items.map(i => `
         <tr>
-            <td style="padding:2px 0;">${i.qty}x ${i.nama}</td>
+            <td style="padding:2px 0;">${i.qty}x ${escHtml(i.nama)}${i.varian ? `<br><small>${escHtml(i.varian)}</small>` : ''}</td>
             <td style="text-align:right; vertical-align:top;">Rp${getItemSubtotal(i).toLocaleString('id-ID')}</td>
         </tr>
     `).join('');
@@ -511,7 +700,7 @@ function cetakStrukLangsung(order) {
         <html>
         <head>
             <meta charset="utf-8">
-            <title>Struk #${order.idOrder}</title>
+            <title>Struk #${escHtml(order.idOrder)}</title>
             <style>
                 @page { size: 58mm; margin: 0; }
                 body {
@@ -532,14 +721,14 @@ function cetakStrukLangsung(order) {
                 <strong style="font-size:14px;">SABANGDOR</strong><br>
                 <span>Outlet Ambil Sendiri</span><br>
             </div>
-            
+
             <div class="divider"></div>
 
             <div>
-                <div>No: <strong>#${order.idOrder}</strong></div>
-                <div>Nama: ${order.namaPelanggan}</div>
-                <div>Tgl: ${order.tanggal || new Date().toLocaleDateString('id-ID')} ${order.waktu}</div>
-                <div>Bayar: ${order.metodeBayar}</div>
+                <div>No: <strong>#${escHtml(order.idOrder)}</strong></div>
+                <div>Nama: ${escHtml(order.namaPelanggan)}</div>
+                <div>Tgl: ${escHtml(order.tanggal || new Date().toLocaleDateString('id-ID'))} ${escHtml(order.waktu)}</div>
+                <div>Bayar: ${escHtml(order.metodeBayar)}</div>
             </div>
 
             <div class="divider"></div>
@@ -554,11 +743,11 @@ function cetakStrukLangsung(order) {
 
             <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:12px;">
                 <span>TOTAL:</span>
-                <span>${order.totalHargaFormatted}</span>
+                <span>${escHtml(order.totalHargaFormatted)}</span>
             </div>
 
             <div class="divider"></div>
-            
+
             <div class="text-center" style="margin-top:8px;">
                 <span>Terima Kasih!</span><br>
                 <small>Selamat Menikmati</small>
@@ -584,7 +773,7 @@ let mtFotoData = '';
 let mtMsgTimer = null;
 
 function escHtml(str) {
-    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function rupiah(n) {
@@ -953,6 +1142,9 @@ async function handleSimpanMenuCustom(e) {
             mtResetForm();
             mtShowMsg(wasEdit ? 'Perubahan menu berhasil disimpan!' : 'Menu berhasil ditambahkan!', 'ok');
             await renderMenuTambahan();
+        } else {
+            const duplikat = /duplicate|unique/i.test(galatDbTerakhir) ? ' (nama menu sudah dipakai)' : '';
+            mtShowMsg('Gagal menyimpan menu: ' + (galatDbTerakhir || 'periksa koneksi / login ulang') + duplikat, 'error');
         }
     } finally {
         if (btn) btn.disabled = false;
@@ -968,32 +1160,36 @@ async function hapusMenuCustom(menuId) {
         mtShowMsg('Menu berhasil dihapus.', 'ok');
         await renderMenuTambahan();
     } else {
-        mtShowMsg('Gagal menghapus menu dari penyimpanan.', 'error');
+        mtShowMsg('Gagal menghapus menu: ' + (galatDbTerakhir || 'periksa koneksi / login ulang'), 'error');
     }
 }
 
 // ==========================================
 // FITUR BUKA / TUTUP TOKO (HEADER)
 // ==========================================
-function cekStatusTokoAktif() {
-    return localStorage.getItem('sabangdor_status_toko') !== 'tutup';
+let tokoBuka = true;
+
+async function muatStatusToko() {
+    tokoBuka = (await getSetting('status_toko', 'buka')) !== 'tutup';
+    updateUIStatusToko();
 }
 
-function toggleStatusToko() {
-    const sedangBuka = cekStatusTokoAktif();
-    const statusBaru = sedangBuka ? 'tutup' : 'buka';
-    
-    localStorage.setItem('sabangdor_status_toko', statusBaru);
-    updateUIStatusToko();
+async function toggleStatusToko() {
+    const statusBaru = tokoBuka ? 'tutup' : 'buka';
+    try {
+        await setSetting('status_toko', statusBaru);
+        tokoBuka = statusBaru === 'buka';
+        updateUIStatusToko();
+    } catch (err) {
+        alert('Gagal mengubah status toko: ' + (err.message || err));
+    }
 }
 
 function updateUIStatusToko() {
     const btn = document.getElementById('btn-toggle-toko');
     if (!btn) return;
 
-    const bimbinganBuka = cekStatusTokoAktif();
-
-    if (bimbinganBuka) {
+    if (tokoBuka) {
         btn.className = 'btn-toggle-stok ready';
         btn.innerText = '🟢 TOKO BUKA';
     } else {
@@ -1012,6 +1208,7 @@ let kasirActiveAddons = [];
 
 async function bukaModalKasirOrder() {
     kasirCart = [];
+    Object.keys(kasirBakpaoQtyMap).forEach(v => { kasirBakpaoQtyMap[v] = 0; });
     const namaInp = document.getElementById('kasirNamaPelanggan');
     const uangInp = document.getElementById('kasirUangDiterima');
     const kembalianTxt = document.getElementById('kasirKembalianTxt');
@@ -1111,7 +1308,7 @@ async function isiDropdownMenuKasirInteractive() {
     });
 
     select.dataset.menuCollection = JSON.stringify(semuaMenu);
-    select.innerHTML = semuaMenu.map((m, idx) => `<option value="${idx}">${m.nama}</option>`).join('');
+    select.innerHTML = semuaMenu.map((m, idx) => `<option value="${idx}">${escHtml(m.nama)}</option>`).join('');
 
     onKasirMenuChange();
 }
@@ -1137,7 +1334,7 @@ function onKasirMenuChange() {
                 <span style="font-size: 11px; color: var(--text-muted);">Atur jumlah tiap varian bakpao:</span>
                 <div id="bakpaoVariantList" style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
                     ${varianBakpao.map(v => `
-                        <div class="bakpao-var-row" data-varian="${v}" style="display: flex; justify-content: space-between; align-items: center; background: #F8FAFC; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-line);">
+                        <div class="bakpao-var-row" data-varian="${escHtml(v)}" style="display: flex; justify-content: space-between; align-items: center; background: #F8FAFC; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-line);">
                             <span style="font-size: 0.85rem; font-weight: 700;">${v}</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <button type="button" class="mt-btn-x" onclick="ubahQtyBakpaoKasir('${v}', -1)">-</button>
@@ -1158,9 +1355,9 @@ function onKasirMenuChange() {
     if (kasirSelectedMenu.ukuran && kasirSelectedMenu.ukuran.length > 0) {
         kasirActiveSize = kasirSelectedMenu.ukuran[0];
         ukuranContainer.innerHTML = kasirSelectedMenu.ukuran.map((u, idx) => `
-            <button type="button" class="btn-outline-merchant size-chip ${idx === 0 ? 'active-chip' : ''}" 
-                onclick="pilihUkuranKasir('${u.nama}')" style="flex: 1; padding: 8px; font-size: 0.8rem;">
-                <b>${u.nama}</b><br><small>${u.porsi || ''} Rp${Number(u.harga).toLocaleString('id-ID')}</small>
+            <button type="button" class="btn-outline-merchant size-chip ${idx === 0 ? 'active-chip' : ''}" data-ukuran="${escHtml(u.nama)}"
+                onclick="pilihUkuranKasir(this.dataset.ukuran)" style="flex: 1; padding: 8px; font-size: 0.8rem;${idx === 0 ? ' border-color: var(--primary-red); background: var(--red-tint);' : ''}">
+                <b>${escHtml(u.nama)}</b><br><small>${escHtml(u.porsi || '')} Rp${Number(u.harga).toLocaleString('id-ID')}</small>
             </button>
         `).join('');
     } else {
@@ -1172,7 +1369,7 @@ function onKasirMenuChange() {
         kasirActiveAddons = [];
         addonContainer.innerHTML = kasirSelectedMenu.addon.map((a, idx) => `
             <label style="display: flex; justify-content: space-between; align-items: center; background: #F8FAFC; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-line); font-size: 0.85rem; cursor: pointer;">
-                <span>${a.name || a.nama} (+Rp${Number(a.harga).toLocaleString('id-ID')})</span>
+                <span>${escHtml(a.name || a.nama)} (<span class="kasir-addon-harga" data-idx="${idx}">+Rp${Number(a.harga).toLocaleString('id-ID')}</span>)</span>
                 <input type="checkbox" class="kasir-addon-checkbox" value="${idx}" onchange="updateKasirAddonSelection()">
             </label>
         `).join('');
@@ -1206,9 +1403,10 @@ function hitungHargaBakpaoKasir(totalPcs) {
 function pilihUkuranKasir(namaUkuran) {
     if (!kasirSelectedMenu) return;
     kasirActiveSize = kasirSelectedMenu.ukuran.find(u => u.nama === namaUkuran);
+    updateKasirAddonSelection();
 
     document.querySelectorAll('.size-chip').forEach(btn => {
-        if (btn.innerText.includes(namaUkuran)) {
+        if (btn.dataset.ukuran === namaUkuran) {
             btn.style.borderColor = 'var(--primary-red)';
             btn.style.background = 'var(--red-tint)';
         } else {
@@ -1218,16 +1416,34 @@ function pilihUkuranKasir(namaUkuran) {
     });
 }
 
+// Extra Mentai: M = Rp3.000, XL = Rp5.000, tidak tersedia untuk ukuran S
+function hargaAddonKasir(addonObj, ukuran) {
+    const nama = addonObj.name || addonObj.nama || '';
+    const namaUkuran = ukuran ? String(ukuran.nama).trim().toUpperCase() : '';
+    if (/extra mentai/i.test(nama) && namaUkuran === 'XL') return 5000;
+    return Number(addonObj.harga) || 0;
+}
+
 function updateKasirAddonSelection() {
     kasirActiveAddons = [];
+    if (!kasirSelectedMenu || !kasirSelectedMenu.addon) return;
     document.querySelectorAll('.kasir-addon-checkbox:checked').forEach(cb => {
         const addonObj = kasirSelectedMenu.addon[cb.value];
         if (addonObj) {
             kasirActiveAddons.push({
                 nama: addonObj.name || addonObj.nama,
-                harga: Number(addonObj.harga) || 0
+                harga: hargaAddonKasir(addonObj, kasirActiveSize)
             });
         }
+    });
+    refreshLabelHargaAddonKasir();
+}
+
+function refreshLabelHargaAddonKasir() {
+    if (!kasirSelectedMenu || !kasirSelectedMenu.addon) return;
+    document.querySelectorAll('.kasir-addon-harga').forEach(el => {
+        const addonObj = kasirSelectedMenu.addon[el.dataset.idx];
+        if (addonObj) el.textContent = '+Rp' + hargaAddonKasir(addonObj, kasirActiveSize).toLocaleString('id-ID');
     });
 }
 
@@ -1271,7 +1487,13 @@ function tambahItemKeKasirCartCustom() {
 
     if (!kasirActiveSize) return;
 
-    const qty = parseInt(document.getElementById('kasirQtyItem').value, 10) || 1;
+    updateKasirAddonSelection();
+    if (String(kasirActiveSize.nama).trim().toUpperCase() === 'S' && kasirActiveAddons.some(a => /extra mentai/i.test(a.nama))) {
+        alert('Extra Mentai hanya tersedia untuk ukuran M dan XL.');
+        return;
+    }
+
+    const qty = Math.max(1, parseInt(document.getElementById('kasirQtyItem').value, 10) || 1);
     let hargaSatuan = Number(kasirActiveSize.harga) || 0;
     
     let addonTextDetail = '';
@@ -1301,6 +1523,10 @@ function tambahItemKeKasirCartCustom() {
     }
 
     document.getElementById('kasirQtyItem').value = 1;
+    // reset pilihan tambahan agar tidak terbawa ke item berikutnya
+    document.querySelectorAll('.kasir-addon-checkbox').forEach(cb => { cb.checked = false; });
+    kasirActiveAddons = [];
+    refreshLabelHargaAddonKasir();
     renderKasirCartList();
 }
 
@@ -1326,7 +1552,7 @@ function renderKasirCartList() {
         return `
             <li class="order-item-row" style="align-items:center;">
                 <div>
-                    <b>${item.qty}x</b> ${item.namaMenu} <small style="color:var(--text-muted);">(${item.varian})</small>
+                    <b>${item.qty}x</b> ${escHtml(item.namaMenu)} <small style="color:var(--text-muted);">(${escHtml(item.varian)})</small>
                     <div style="font-size:0.75rem; color:var(--text-muted);">Rp${item.hargaSatuan.toLocaleString('id-ID')} / porsi</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -1399,65 +1625,57 @@ async function prosesSimpanPesananKasir() {
     if (btnSimpan) btnSimpan.disabled = true;
 
     try {
-        const { data: nomorAntrean, error: qError } = await supabase.rpc('generate_daily_queue_number');
-        if (qError) throw qError;
-
-        const antreanFinal = nomorAntrean || 1;
-        const idOrderFormatted = `ANT-${String(antreanFinal).padStart(2, '0')}`;
-
-        const { data: insertedOrder, error: orderError } = await supabase
-            .from('orders')
-            .insert([{
-                nomor_antrean: antreanFinal,
-                nama_pembeli: `[${sumberPesanan}] ${namaPelanggan}`,
-                tipe_pembayaran: tipePembayaranDb,
-                status_pembayaran: statusPembayaranDb,
-                status_pesanan: 'disiapkan',
-                total_harga: totalHarga
-            }])
-            .select()
-            .single();
-
-        if (orderError) throw orderError;
-        const orderId = insertedOrder.id_order;
-
-        const orderItemsPayload = kasirCart.map(i => ({
-            id_order: orderId,
-            jumlah: i.qty,
+        const namaFinal = `[${sumberPesanan}] ${namaPelanggan}`;
+        const itemsPayload = kasirCart.map(i => ({
             nama_item: i.namaItemDb,
             varian: i.varian,
             catatan: `POS Manual (${sumberPesanan})`,
+            jumlah: i.qty,
             harga_satuan: i.hargaSatuan,
             subtotal: i.subtotal
         }));
 
-        const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItemsPayload);
+        // 1 transaksi atomik: order + semua item (nomor antrean dibuat otomatis oleh database)
+        const { data: hasil, error: rpcError } = await supabase.rpc('buat_pesanan', {
+            p_nama: namaFinal,
+            p_tipe: tipePembayaranDb,
+            p_items: itemsPayload,
+            p_status_bayar: statusPembayaranDb,
+            p_status_pesanan: 'disiapkan'
+        });
+        if (rpcError) throw rpcError;
+        if (!hasil || !hasil.id_order) throw new Error('Respon server tidak valid.');
 
-        if (itemsError) throw itemsError;
+        const idOrderFormatted = `ANT-${String(hasil.nomor_antrean).padStart(2, '0')}`;
+        const itemsCetak = kasirCart.map(i => ({ qty: i.qty, nama: i.namaItemDb, varian: i.varian, hargaSatuan: i.hargaSatuan, totalHargaItem: i.subtotal }));
 
         tutupModalKasirOrder();
-        await renderCurrentSection(true);
+        kasirCart = [];
 
         const pesananBaruObjek = {
-            db_id_order: orderId,
+            db_id_order: hasil.id_order,
             idOrder: idOrderFormatted,
-            namaPelanggan: `[${sumberPesanan}] ${namaPelanggan}`,
+            namaPelanggan: namaFinal,
             metodeBayar: metodeBayar.toUpperCase(),
             totalHargaFormatted: `Rp${totalHarga.toLocaleString('id-ID')}`,
             tanggal: new Date().toLocaleDateString("id-ID"),
             waktu: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
-            items: kasirCart.map(i => ({ qty: i.qty, nama: i.namaItemDb, varian: i.varian, hargaSatuan: i.hargaSatuan, subtotal: i.subtotal }))
+            items: itemsCetak
         };
 
-        if (confirm("Pesanan berhasil disimpan & dikirim ke Dapur!\nApakah Anda ingin mencetak struk sekarang?")) {
+        await renderCurrentSection(true);
+
+        if (confirm(`Pesanan ${idOrderFormatted} berhasil disimpan & dikirim ke Dapur!\nApakah Anda ingin mencetak struk sekarang?`)) {
             cetakStrukLangsung(pesananBaruObjek);
         }
 
     } catch (err) {
         console.error("Gagal menyimpan pesanan POS manual ke Supabase:", err);
-        msgBox.textContent = "Error: " + err.message;
+        let pesan = err.message || String(err);
+        if (/buat_pesanan/i.test(pesan) && /(function|schema cache|not find)/i.test(pesan)) {
+            pesan = 'Database belum diperbarui. Jalankan supabase/migration_perbaikan.sql di Supabase SQL Editor.';
+        }
+        msgBox.textContent = "Error: " + pesan;
         msgBox.className = 'mt-msg show error';
     } finally {
         if (btnSimpan) btnSimpan.disabled = false;
@@ -1487,4 +1705,16 @@ window.cetakStrukLangsungById = cetakStrukLangsungById;
 window.toggleStokCustom = toggleStokCustom;
 window.mulaiEditMenuCustom = mulaiEditMenuCustom;
 window.hapusMenuCustom = hapusMenuCustom;
+window.renderCurrentSection = renderCurrentSection;
+window.handleLogout = handleLogout;
+window.batalkanPesanan = batalkanPesanan;
+window.toggleStokBawaan = toggleStokBawaan;
+window.hapusQris = hapusQris;
+window.ubahQtyBakpaoKasir = ubahQtyBakpaoKasir;
+window.mtTambahUkuran = mtTambahUkuran;
+window.mtTambahAddon = mtTambahAddon;
+window.mtPilihFoto = mtPilihFoto;
+window.mtOnKategoriChange = mtOnKategoriChange;
+window.mtResetForm = mtResetForm;
+window.handleSimpanMenuCustom = handleSimpanMenuCustom;
 window.ubahQtyBakpaoKasir = ubahQtyBakpaoKasir;

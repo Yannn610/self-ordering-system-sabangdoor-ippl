@@ -115,14 +115,15 @@
         try {
             const { data, error } = await client
                 .from('order_items')
-                .select('id_order, menus(nama_dimsum)');
+                .select('id_order, nama_item, menus(nama_dimsum)');
 
             if (error || !data || data.length === 0) return [];
 
             const ordersMap = {};
             data.forEach(row => {
                 const id = row.id_order;
-                const menuName = row.menus ? row.menus.nama_dimsum : null;
+                // nama_item = snapshot saat order dibuat; menus = data lama (seed)
+                const menuName = row.nama_item || (row.menus ? row.menus.nama_dimsum : null);
                 if (id && menuName) {
                     if (!ordersMap[id]) ordersMap[id] = [];
                     ordersMap[id].push(normalizeMenuName(menuName));

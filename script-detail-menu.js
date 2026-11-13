@@ -10,19 +10,28 @@ function rupiah(num) {
     return 'Rp' + Number(num || 0).toLocaleString('id-ID');
 }
 
-const DEFAULT_MENU_IMG = typeof window.DEFAULT_MENU_IMG !== 'undefined' 
-    ? window.DEFAULT_MENU_IMG 
+const DETAIL_DEFAULT_IMG = (typeof window.DEFAULT_MENU_IMG !== 'undefined' && window.DEFAULT_MENU_IMG)
+    ? window.DEFAULT_MENU_IMG
     : 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80';
 
 // ==========================================
 // MENU TAMBAHAN: isi halaman detail dibuat otomatis dari data kasir
 // Hanya aktif di detail-menu-custom.html?id=... (butuh menu-custom-store.js).
 // ==========================================
-(function () {
+window.__detailReady = (async function () {
     const body = document.getElementById('content-body');
     if (!body || typeof getCustomMenus !== 'function') return;
+
+    // Ambil data terbaru dari Supabase (agar link langsung / HP lain tetap bisa membuka menu)
+    if (typeof window.getCustomMenusFromSupabase === 'function') {
+        try { await window.getCustomMenusFromSupabase(); } catch (e) { /* pakai cache */ }
+    }
+    if (window.SabangdorSettings) {
+        try { await window.SabangdorSettings.muat(); } catch (e) { /* abaikan */ }
+    }
+
     const id = new URLSearchParams(window.location.search).get('id');
-    const menu = getCustomMenus().find(m => m.id === id);
+    const menu = getCustomMenus().find(m => String(m.id) === String(id));
 
     if (!menu) {
         document.title = 'Menu tidak ditemukan';
@@ -38,6 +47,17 @@ const DEFAULT_MENU_IMG = typeof window.DEFAULT_MENU_IMG !== 'undefined'
 
     document.title = 'Detail Menu - ' + menu.nama;
 
+    if (menu.habis) {
+        body.innerHTML = `
+            <div class="section-card">
+                <h3>${escHtml(menu.nama)} sedang habis</h3>
+                <p class="optional-subtitle">Mohon maaf, menu ini sedang tidak tersedia.</p>
+            </div>`;
+        const btnHabis = document.querySelector('.cart-btn');
+        if (btnHabis) btnHabis.disabled = true;
+        return;
+    }
+
     const ukuran = menu.ukuran || [];
     const addon = menu.addon || [];
     const aktif = ukuran[0];
@@ -45,7 +65,7 @@ const DEFAULT_MENU_IMG = typeof window.DEFAULT_MENU_IMG !== 'undefined'
     const ukuranHtml = ukuran.map((u, i) => `
         <div class="size-box${i === 0 ? ' active' : ''}">
             <span class="size-name">${escHtml(u.nama)}</span>
-            <span class="size-pcs">${escHtml(u.ket || '1 porsi')}</span>
+            <span class="size-pcs">${escHtml(u.porsi || u.ket || '1 porsi')}</span>
             <span class="size-price">${rupiah(u.harga)}</span>
         </div>`).join('');
 
@@ -81,7 +101,7 @@ const DEFAULT_MENU_IMG = typeof window.DEFAULT_MENU_IMG !== 'undefined'
         <div class="product-banner">
             <div class="yellow-circle"></div>
             <div class="image-wrapper">
-                <img src="${menu.img || DEFAULT_MENU_IMG}" alt="${escHtml(menu.nama)}">
+                <img src="${escHtml(menu.img || DETAIL_DEFAULT_IMG)}" alt="${escHtml(menu.nama)}">
             </div>
         </div>
 
@@ -107,7 +127,7 @@ const DEFAULT_MENU_IMG = typeof window.DEFAULT_MENU_IMG !== 'undefined'
                         <button class="qty-btn plus"><i class="fa-solid fa-plus"></i></button>
                     </div>
                 </div>
-                <span class="qty-pcs-info">${escHtml(aktif ? (aktif.ket || '1 porsi') : '')}/porsi</span>
+                <span class="qty-pcs-info">${escHtml(aktif ? (aktif.porsi || aktif.ket || '1 porsi') : '')}/porsi</span>
             </div>
         </div>
 
@@ -132,7 +152,12 @@ const DEFAULT_MENU_IMG = typeof window.DEFAULT_MENU_IMG !== 'undefined'
         </div>`;
 })();
 
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
+    // Pada halaman menu custom, tunggu sampai isi halaman selesai dirender
+    if (window.__detailReady) {
+        try { await window.__detailReady; } catch (e) { console.error(e); }
+    }
+
     const sizeBoxes = document.querySelectorAll('.size-box');
     const minusBtn = document.querySelector('.qty-btn.minus');
     const plusBtn = document.querySelector('.qty-btn.plus');
@@ -156,7 +181,28 @@ document.addEventListener('DOMContentLoaded', function () {
         return 'Rp' + number.toLocaleString('id-ID');
     }
 
+    // Extra Mentai: M = Rp3.000, XL = Rp5.000, tidak tersedia untuk ukuran S
+    function sesuaikanAddonMentai() {
+        const activeBox = document.querySelector('.size-box.active .size-name');
+        const ukuran = activeBox ? activeBox.innerText.trim().toUpperCase() : '';
+        checkboxes.forEach(cb => {
+            const item = cb.closest('.addon-item');
+            if (!item) return;
+            const nama = (item.querySelector('.addon-label span') || {}).innerText || '';
+            if (!/extra mentai/i.test(nama)) return;
+
+            const priceEl = item.querySelector('.addon-price');
+            if (priceEl) priceEl.innerText = ukuran === 'XL' ? '+Rp5.000' : '+Rp3.000';
+
+            const tidakTersedia = ukuran === 'S';
+            if (tidakTersedia) cb.checked = false;
+            cb.disabled = tidakTersedia;
+            item.style.opacity = tidakTersedia ? '0.45' : '';
+        });
+    }
+
     function updateCalculations() {
+        sesuaikanAddonMentai();
         let addonTotal = 0;
         checkboxes.forEach(cb => {
             if (cb.checked) {

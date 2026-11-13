@@ -80,14 +80,28 @@ window.addEventListener('DOMContentLoaded', function() {
     initStaffTrigger();
     initRuangPopupKeranjang();
 
-    // Pantau status operasional buka/tutup toko
+    // Pantau status operasional buka/tutup toko (cache lokal, dicek cepat)
     cekDanTerapkanStatusToko();
     setInterval(cekDanTerapkanStatusToko, 2000);
 
-    // Sinkronisasi menu kustom secara periodik
+    // Sinkronisasi pengaturan toko (buka/tutup, menu habis) & menu kustom dari Supabase
+    sinkronkanPengaturan();
     segarkanMenuCustom(true);
-    setInterval(function() { segarkanMenuCustom(false); }, 5000);
+    setInterval(function() {
+        if (document.hidden) return;
+        sinkronkanPengaturan();
+        segarkanMenuCustom(false);
+    }, 5000);
 });
+
+async function sinkronkanPengaturan() {
+    if (!window.SabangdorSettings) return;
+    var ok = await window.SabangdorSettings.muat();
+    if (ok) {
+        cekDanTerapkanStatusToko();
+        updateTampilanStokPembeli();
+    }
+}
 
 async function segarkanMenuCustom(paksa) {
     if (document.hidden && !paksa) return;
@@ -445,9 +459,18 @@ function renderMenuCustom() {
 }
 
 // 9. Status Toko Buka / Tutup
+var tokoSedangTutupDiHalaman = false;
+
 function cekDanTerapkanStatusToko() {
     var statusToko = localStorage.getItem('sabangdor_status_toko');
     var isTutup = statusToko === 'tutup';
+
+    // Toko baru dibuka kembali: muat ulang halaman agar tombol & link menu pulih
+    if (!isTutup && tokoSedangTutupDiHalaman) {
+        window.location.reload();
+        return;
+    }
+    tokoSedangTutupDiHalaman = isTutup;
     var bannerTutup = document.getElementById('banner-toko-tutup');
 
     if (isTutup) {
