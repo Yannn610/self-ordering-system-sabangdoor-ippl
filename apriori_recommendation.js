@@ -5,198 +5,153 @@
         root.AprioriEngine = factory();
     }
 }(typeof self !== 'undefined' ? self : this, function () {
+    'use strict';
 
-    // 1. Katalog Metadata Menu untuk Tampilan UI
-    const MENU_CATALOG = {
-        "Mentai Ori": {
-            nama: "Mentai Ori",
-            variantInfo: "S / M / XL | 3 / 6 / 16 pcs",
-            harga: 13000,
-            hargaFormatted: "Mulai Rp13.000",
-            linkDetail: "dimsum-mentai-ori.html",
-            imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
-        },
-        "Mentai Cheese": {
-            nama: "Mentai Cheese",
-            variantInfo: "S / M / XL | 3 / 6 / 16 pcs",
-            harga: 15000,
-            hargaFormatted: "Mulai Rp15.000",
-            linkDetail: "dimsum-mentai-cheese.html",
-            imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
-        },
-        "Mentai Tanuki": {
-            nama: "Mentai Tanuki",
-            variantInfo: "S / M / XL | 3 / 6 / 16 pcs",
-            harga: 15000,
-            hargaFormatted: "Mulai Rp15.000",
-            linkDetail: "dimsum-mentai-tanuki.html",
-            imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
-        },
-        "Dimsum Mix": {
-            nama: "Dimsum Mix",
-            variantInfo: "M / XL | S tidak tersedia",
-            harga: 26000,
-            hargaFormatted: "Mulai Rp26.000",
-            linkDetail: "dimsum-mix.html",
-            imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
-        },
-        "Dimsum Aja": {
-            nama: "Dimsum Aja",
-            variantInfo: "S / M / XL | 3 / 6 / 16 pcs",
-            harga: 10000,
-            hargaFormatted: "Mulai Rp10.000",
-            linkDetail: "dimsum-aja.html",
-            imgSrc: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=600&q=80"
-        },
-        "Bakpao": {
-            nama: "Bakpao",
-            variantInfo: "5 Varian | 1 / 3 / 6 pcs",
-            harga: 7000,
-            hargaFormatted: "Mulai Rp7.000",
-            linkDetail: "detail-menu-bakpao.html",
-            imgSrc: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80"
-        },
-        "Extra Mentai": {
-            nama: "Extra Mentai",
-            variantInfo: "Add-on Saus Mentai Gurih",
-            harga: 3000,
-            hargaFormatted: "Rp3.000",
-            linkDetail: "index.html#section-mentai",
-            imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
-        },
-        "Chilli Oil Extra": {
-            nama: "Chilli Oil Extra",
-            variantInfo: "Add-on Minyak Cabai Spesial",
-            harga: 3000,
-            hargaFormatted: "Rp3.000",
-            linkDetail: "index.html#section-mentai",
-            imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
-        }
-    };
+    const LIMITS = { MAX_NAME_LEN: 80, MAX_BASKET_ITEMS: 30, MAX_ORDERS: 20000 };
 
-    // 2. Normalisasi Nama Menu
+    /** Mencegah manipulasi objek katalog dari script eksternal */
+    function deepFreeze(obj) {
+        if (!obj || typeof obj !== 'object') return obj;
+        Object.freeze(obj);
+        Object.keys(obj).forEach(k => {
+            if (obj[k] && typeof obj[k] === 'object' && !Object.isFrozen(obj[k])) deepFreeze(obj[k]);
+        });
+        return obj;
+    }
+
+    /** Katalog metadata menu untuk integrasi antarmuka pengguna (UI) */
+    const MENU_CATALOG = deepFreeze({
+        "Mentai Ori": { nama: "Mentai Ori", variantInfo: "S / M / XL | 3 / 6 / 16 pcs", harga: 13000, hargaFormatted: "Mulai Rp13.000", linkDetail: "dimsum-mentai-ori.html", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
+        "Mentai Cheese": { nama: "Mentai Cheese", variantInfo: "S / M / XL | 3 / 6 / 16 pcs", harga: 15000, hargaFormatted: "Mulai Rp15.000", linkDetail: "dimsum-mentai-cheese.html", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
+        "Mentai Tanuki": { nama: "Mentai Tanuki", variantInfo: "S / M / XL | 3 / 6 / 16 pcs", harga: 15000, hargaFormatted: "Mulai Rp15.000", linkDetail: "dimsum-mentai-tanuki.html", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
+        "Dimsum Mix": { nama: "Dimsum Mix", variantInfo: "M / XL | S tidak tersedia", harga: 26000, hargaFormatted: "Mulai Rp26.000", linkDetail: "dimsum-mix.html", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
+        "Dimsum Aja": { nama: "Dimsum Aja", variantInfo: "S / M / XL | 3 / 6 / 16 pcs", harga: 10000, hargaFormatted: "Mulai Rp10.000", linkDetail: "dimsum-aja.html", imgSrc: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=600&q=80" },
+        "Bakpao": { nama: "Bakpao", variantInfo: "5 Varian | 1 / 3 / 6 pcs", harga: 7000, hargaFormatted: "Mulai Rp7.000", linkDetail: "detail-menu-bakpao.html", imgSrc: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80" },
+        "Extra Mentai": { nama: "Extra Mentai", variantInfo: "Add-on Saus Mentai Gurih", harga: 3000, hargaFormatted: "Rp3.000", linkDetail: "index.html#section-mentai", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
+        "Chilli Oil Extra": { nama: "Chilli Oil Extra", variantInfo: "Add-on Minyak Cabai Spesial", harga: 3000, hargaFormatted: "Rp3.000", linkDetail: "index.html#section-mentai", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" }
+    });
+
+    /** Menormalisasi nama menu dan mencegah injeksi XSS serta prototype pollution */
     function normalizeMenuName(rawName) {
-        if (!rawName) return '';
-        const s = String(rawName).toLowerCase().trim();
-        if (s.includes('bakpao')) return 'Bakpao';
-        if (s.includes('extra mentai') || s.includes('saus mentai')) return 'Extra Mentai';
-        if (s.includes('chilli') || s.includes('cabai') || s.includes('minyak')) return 'Chilli Oil Extra';
-        if (s.includes('cheese') || s.includes('cheeze')) return 'Mentai Cheese';
-        if (s.includes('tanuki')) return 'Mentai Tanuki';
-        if (s.includes('mix')) return 'Dimsum Mix';
-        if (s.includes('mentai') || s.includes('ori')) return 'Mentai Ori';
-        if (s.includes('dimsum')) return 'Dimsum Aja';
-        return rawName.trim();
+        if (!rawName || typeof rawName !== 'string') return '';
+        const clean = rawName.replace(/[<>'"\\;`]/g, '').trim().slice(0, LIMITS.MAX_NAME_LEN);
+        if (!clean || clean === '__proto__' || clean === 'constructor' || clean === 'prototype') return '';
+
+        const lower = clean.toLowerCase();
+        if (lower.includes('bakpao')) return 'Bakpao';
+        if (lower.includes('extra mentai') || lower.includes('saus mentai')) return 'Extra Mentai';
+        if (lower.includes('chilli') || lower.includes('cabai') || lower.includes('minyak')) return 'Chilli Oil Extra';
+        if (lower.includes('cheese') || lower.includes('cheeze')) return 'Mentai Cheese';
+        if (lower.includes('tanuki')) return 'Mentai Tanuki';
+        if (lower.includes('mix')) return 'Dimsum Mix';
+        if (lower.includes('mentai') || lower.includes('ori')) return 'Mentai Ori';
+        if (lower.includes('dimsum')) return 'Dimsum Aja';
+        return clean;
     }
 
-    // 3. Ambil Transaksi Riil dari LocalStorage (Client-side)
-    function getRealTransactions() {
-        if (typeof window !== 'undefined' && window.localStorage) {
-            try {
-                const raw = JSON.parse(localStorage.getItem('sabangdor_semua_pesanan') || '[]');
-                if (Array.isArray(raw) && raw.length > 0) {
-                    return raw.map(order => {
-                        const items = order.items || [];
-                        return items.map(i => normalizeMenuName(i.nama)).filter(Boolean);
-                    }).filter(basket => basket.length > 0);
-                }
-            } catch (e) {
-                console.warn('Gagal membaca transaksi lokal:', e);
-            }
+    /** Memvalidasi dan membatasi ukuran keranjang transaksi */
+    function sanitizeBasket(basket) {
+        if (!Array.isArray(basket)) return [];
+        const unique = new Set();
+        for (let i = 0; i < basket.length; i++) {
+            if (unique.size >= LIMITS.MAX_BASKET_ITEMS) break;
+            const item = normalizeMenuName(basket[i]);
+            if (item) unique.add(item);
         }
-        return [];
+        return Array.from(unique);
     }
 
-    // 3B. Ambil Transaksi Riil dari Supabase (Cloud Database)
-    async function getSupabaseTransactions(customClient) {
-        const client = customClient || (typeof window !== 'undefined' && window.supabaseClient);
-        if (!client) return [];
-
+    /** Mengambil riwayat transaksi dari penyimpanan lokal browser (LocalStorage) */
+    function getRealTransactions() {
+        if (typeof window === 'undefined' || !window.localStorage) return [];
         try {
-            const { data, error } = await client
-                .from('order_items')
-                .select('id_order, nama_item, menus(nama_dimsum)');
-
-            if (error || !data || data.length === 0) return [];
-
-            const ordersMap = {};
-            data.forEach(row => {
-                const id = row.id_order;
-                // nama_item = snapshot saat order dibuat; menus = data lama (seed)
-                const menuName = row.nama_item || (row.menus ? row.menus.nama_dimsum : null);
-                if (id && menuName) {
-                    if (!ordersMap[id]) ordersMap[id] = [];
-                    ordersMap[id].push(normalizeMenuName(menuName));
-                }
-            });
-
-            return Object.values(ordersMap).filter(b => b.length > 0);
-        } catch (err) {
-            console.warn('Gagal membaca transaksi Supabase:', err);
+            const raw = localStorage.getItem('sabangdor_semua_pesanan');
+            const parsed = raw ? JSON.parse(raw) : [];
+            if (!Array.isArray(parsed)) return [];
+            return parsed.slice(0, LIMITS.MAX_ORDERS).map(o => {
+                const items = Array.isArray(o?.items) ? o.items : [];
+                return items.map(i => normalizeMenuName(i?.nama)).filter(Boolean);
+            }).filter(b => b.length > 0);
+        } catch {
             return [];
         }
     }
 
-    function trainApriori(baskets, minSupport = 0.05, minConfidence = 0.1) {
-        // Jika tidak ada data transaksi yang dioper, ambil dari riwayat transaksi nyata
-        if (!baskets || !Array.isArray(baskets) || baskets.length === 0) {
-            baskets = getRealTransactions();
-        }
+    /** Mengambil riwayat transaksi riil dari Supabase database */
+    async function getSupabaseTransactions(customClient) {
+        const client = customClient || (typeof window !== 'undefined' ? window.supabaseClient : null);
+        if (!client || typeof client.from !== 'function') return [];
+        try {
+            const { data, error } = await client.from('order_items')
+                .select('id_order, nama_item, menus(nama_dimsum)')
+                .limit(LIMITS.MAX_ORDERS);
 
-        const totalTransactions = baskets.length;
-        if (totalTransactions === 0) {
-            return {
-                frequentItemsets: {},
-                rules: [],
-                totalTransactions: 0,
-                message: "Belum ada data transaksi yang tercatat."
-            };
-        }
-
-        const itemCounts = {};
-        const pairCounts = {};
-
-        // Hitung frekuensi 1-item dan 2-item (Pasangan menu yang dibeli bersamaan)
-        baskets.forEach(basket => {
-            const uniqueItems = Array.from(new Set(basket.map(normalizeMenuName).filter(Boolean)));
-
-            for (let i = 0; i < uniqueItems.length; i++) {
-                const itemA = uniqueItems[i];
-                itemCounts[itemA] = (itemCounts[itemA] || 0) + 1;
-
-                for (let j = i + 1; j < uniqueItems.length; j++) {
-                    const itemB = uniqueItems[j];
-                    const key1 = `${itemA}__${itemB}`;
-                    const key2 = `${itemB}__${itemA}`;
-                    pairCounts[key1] = (pairCounts[key1] || 0) + 1;
-                    pairCounts[key2] = (pairCounts[key2] || 0) + 1;
+            if (error || !Array.isArray(data) || data.length === 0) return [];
+            const orders = new Map();
+            for (const r of data) {
+                const id = r?.id_order;
+                const name = normalizeMenuName(r?.nama_item || r?.menus?.nama_dimsum);
+                if (id && name) {
+                    if (!orders.has(id)) orders.set(id, []);
+                    orders.get(id).push(name);
                 }
             }
-        });
+            return Array.from(orders.values()).filter(b => b.length > 0);
+        } catch {
+            return [];
+        }
+    }
 
-        // Bentuk Frequent Itemsets
-        const frequentItemsets = {};
-        Object.keys(itemCounts).forEach(item => {
-            const support = itemCounts[item] / totalTransactions;
-            if (support >= minSupport) {
-                frequentItemsets[item] = { count: itemCounts[item], support };
+    /**
+     * Melatih model Apriori: menghitung frequent itemsets dan association rules (Support, Confidence, Lift)
+     */
+    function trainApriori(baskets, minSupport = 0.05, minConfidence = 0.1) {
+        if (!Array.isArray(baskets) || baskets.length === 0) baskets = getRealTransactions();
+
+        const validSupport = typeof minSupport === 'number' && minSupport > 0 && minSupport <= 1 ? minSupport : 0.05;
+        const validConfidence = typeof minConfidence === 'number' && minConfidence >= 0 && minConfidence <= 1 ? minConfidence : 0.1;
+
+        const cleanBaskets = baskets.slice(0, LIMITS.MAX_ORDERS).map(sanitizeBasket).filter(b => b.length > 0);
+        const totalTransactions = cleanBaskets.length;
+        if (totalTransactions === 0) return { frequentItemsets: {}, rules: [], totalTransactions: 0 };
+
+        const itemCounts = new Map();
+        const pairCounts = new Map();
+
+        // Hitung frekuensi 1-itemset dan 2-itemset
+        for (const items of cleanBaskets) {
+            const len = items.length;
+            for (let i = 0; i < len; i++) {
+                const itemA = items[i];
+                itemCounts.set(itemA, (itemCounts.get(itemA) || 0) + 1);
+                for (let j = i + 1; j < len; j++) {
+                    const itemB = items[j];
+                    pairCounts.set(`${itemA}__${itemB}`, (pairCounts.get(`${itemA}__${itemB}`) || 0) + 1);
+                    pairCounts.set(`${itemB}__${itemA}`, (pairCounts.get(`${itemB}__${itemA}`) || 0) + 1);
+                }
             }
+        }
+
+        // Filter Frequent 1-Itemsets berdasarkan minSupport
+        const frequentItemsets = Object.create(null);
+        itemCounts.forEach((count, item) => {
+            const support = count / totalTransactions;
+            if (support >= validSupport) frequentItemsets[item] = { count, support: Number(support.toFixed(4)) };
         });
 
-        // Bentuk Association Rules (A -> B)
+        // Bentuk Aturan Asosiasi (Rules: Antecedent -> Consequent)
         const rules = [];
-        Object.keys(pairCounts).forEach(pairKey => {
+        pairCounts.forEach((countAB, pairKey) => {
             const [itemA, itemB] = pairKey.split('__');
-            const countAB = pairCounts[pairKey];
+            const countA = itemCounts.get(itemA) || 0;
+            const countB = itemCounts.get(itemB) || 0;
+            if (!countA || !countB) return;
+
             const supportAB = countAB / totalTransactions;
-            const supportA = (itemCounts[itemA] || 0) / totalTransactions;
-            const supportB = (itemCounts[itemB] || 0) / totalTransactions;
-
-            if (supportAB >= minSupport && supportA > 0 && supportB > 0) {
-                const confidence = supportAB / supportA;
-                const lift = confidence / supportB;
-
-                if (confidence >= minConfidence) {
+            if (supportAB >= validSupport) {
+                const confidence = supportAB / (countA / totalTransactions);
+                const lift = confidence / (countB / totalTransactions);
+                if (confidence >= validConfidence) {
                     rules.push({
                         antecedent: itemA,
                         consequent: itemB,
@@ -208,53 +163,37 @@
             }
         });
 
-        // Urutkan aturan berdasarkan Lift & Confidence tertinggi
         rules.sort((a, b) => (b.lift * b.confidence) - (a.lift * a.confidence));
-
-        return {
-            frequentItemsets,
-            rules,
-            totalTransactions
-        };
+        return { frequentItemsets, rules, totalTransactions };
     }
 
-    // 5. Rekomendasi Menu Terpopuler (Berdasarkan Support Transaksi Nyata)
+    /** Menghasilkan daftar menu terpopuler berdasarkan nilai support transaksi riil */
     function getPopularRecommendations(frequentItemsets, limit = 5) {
-        if (!frequentItemsets || Object.keys(frequentItemsets).length === 0) return [];
+        if (!frequentItemsets || typeof frequentItemsets !== 'object') return [];
+        const maxLimit = Math.max(1, Math.min(20, Number(limit) || 5));
 
         return Object.keys(frequentItemsets)
-            .map(nama => {
-                const meta = MENU_CATALOG[nama] || { nama, harga: 10000, hargaFormatted: "Rp10.000" };
-                return {
-                    ...meta,
-                    support: frequentItemsets[nama].support,
-                    count: frequentItemsets[nama].count
-                };
-            })
+            .map(nama => ({
+                ...(MENU_CATALOG[nama] || { nama, harga: 10000, hargaFormatted: "Rp10.000", linkDetail: "index.html" }),
+                support: frequentItemsets[nama].support,
+                count: frequentItemsets[nama].count
+            }))
             .sort((a, b) => b.support - a.support)
-            .slice(0, limit);
+            .slice(0, maxLimit);
     }
 
-    // 6. Rekomendasi Cross-Selling Berdasarkan Keranjang Belanja
+    /** Menghasilkan rekomendasi pelengkap (cross-selling) dari kombinasi menu di keranjang belanja */
     function recommend(rules, cartItems = [], limit = 3) {
-        if (!rules || !Array.isArray(rules) || rules.length === 0) return [];
-
-        const normalizedCart = cartItems.map(normalizeMenuName).filter(Boolean);
-        const cartSet = new Set(normalizedCart);
+        if (!Array.isArray(rules) || rules.length === 0) return [];
+        const maxLimit = Math.max(1, Math.min(10, Number(limit) || 3));
+        const cartSet = new Set((Array.isArray(cartItems) ? cartItems : []).map(normalizeMenuName).filter(Boolean));
         const recommendedSet = new Set();
         const results = [];
 
         for (const rule of rules) {
             if (cartSet.has(rule.antecedent) && !cartSet.has(rule.consequent) && !recommendedSet.has(rule.consequent)) {
                 recommendedSet.add(rule.consequent);
-                const meta = MENU_CATALOG[rule.consequent] || {
-                    nama: rule.consequent,
-                    varian: "Rekomendasi",
-                    harga: 10000,
-                    hargaFormatted: "Rp10.000",
-                    imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80"
-                };
-
+                const meta = MENU_CATALOG[rule.consequent] || { nama: rule.consequent, harga: 10000, hargaFormatted: "Rp10.000" };
                 results.push({
                     ...meta,
                     support: rule.support,
@@ -262,15 +201,12 @@
                     lift: rule.lift,
                     alasan: `Sering dipesan bersama ${rule.antecedent}`
                 });
-
-                if (results.length >= limit) break;
+                if (results.length >= maxLimit) break;
             }
         }
-
         return results;
     }
 
-    // API Publik Modul
     const engine = {
         MENU_CATALOG,
         normalizeMenuName,
@@ -283,22 +219,9 @@
         recommend
     };
 
-    // CLI Runner (Jika dijalankan langsung: `node apriori_recommendation.js`)
     if (typeof process !== 'undefined' && process.argv && process.argv[1] && process.argv[1].endsWith('apriori_recommendation.js')) {
-        console.log("============================================================");
-        console.log("  SABANGDOR - APRIORI RECOMMENDATION ENGINE (REAL DATA ONLY)");
-        console.log("============================================================");
         const { rules, frequentItemsets, totalTransactions } = trainApriori();
-        console.log(`- Total Transaksi Riil : ${totalTransactions} transaksi.`);
-
-        if (totalTransactions === 0) {
-            console.log("\n[INFO] Belum ada transaksi riil yang tercatat di sistem.");
-            console.log("      Lakukan pemesanan di web (checkout) untuk mulai menganalisis!");
-        } else {
-            console.log(`- Pola Menu Terdeteksi : ${Object.keys(frequentItemsets).length} menu.`);
-            console.log(`- Aturan Asosiasi (Rules) : ${rules.length} aturan.`);
-        }
-        console.log("============================================================\n");
+        console.log(`[Sabangdor Apriori Engine] Transaksi: ${totalTransactions}, Menu terdeteksi: ${Object.keys(frequentItemsets).length}, Rules: ${rules.length}`);
     }
 
     return engine;
