@@ -1461,7 +1461,12 @@ function tambahItemKeKasirCartCustom() {
 
         const hargaTotalBakpao = hitungHargaBakpaoKasir(totalPcs);
         const varianDetail = pickedVarians.map(v => `${kasirBakpaoQtyMap[v]}x ${v}`).join(', ');
-        const qtyPorsi = parseInt(document.getElementById('kasirQtyItem').value, 10) || 1;
+        const rawQty = parseInt(document.getElementById('kasirQtyItem').value, 10);
+        if (isNaN(rawQty) || rawQty < 1) {
+            alert('Jumlah porsi minimal 1!');
+            return;
+        }
+        const qtyPorsi = rawQty;
 
         const subtotalFinal = hargaTotalBakpao * qtyPorsi;
         const varianFinal = `${totalPcs} pcs: ${varianDetail}`;
@@ -1493,7 +1498,12 @@ function tambahItemKeKasirCartCustom() {
         return;
     }
 
-    const qty = Math.max(1, parseInt(document.getElementById('kasirQtyItem').value, 10) || 1);
+    const rawQtyReg = parseInt(document.getElementById('kasirQtyItem').value, 10);
+    if (isNaN(rawQtyReg) || rawQtyReg < 1) {
+        alert('Jumlah porsi minimal 1!');
+        return;
+    }
+    const qty = rawQtyReg;
     let hargaSatuan = Number(kasirActiveSize.harga) || 0;
     
     let addonTextDetail = '';
@@ -1717,4 +1727,3 @@ window.mtPilihFoto = mtPilihFoto;
 window.mtOnKategoriChange = mtOnKategoriChange;
 window.mtResetForm = mtResetForm;
 window.handleSimpanMenuCustom = handleSimpanMenuCustom;
-window.ubahQtyBakpaoKasir = ubahQtyBakpaoKasir;

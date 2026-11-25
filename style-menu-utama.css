@@ -1,5 +1,6 @@
 :root {
     --primary-red: #E11D48;
+    --primary-hover: #BE123C;
     --dark-maroon: #2B1D19;
     --bg-app: #F8F9FA;
     --card-bg: #FFFFFF;
@@ -16,30 +17,41 @@
     -webkit-tap-highlight-color: transparent;
 }
 
-body {
-    background-color: #0f172a;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
+html {
+    font-size: 16px;
+    background-color: var(--bg-app);
 }
 
-.mobile-container {
+body {
+    background-color: var(--bg-app);
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--text-main);
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+.mobile-container,
+.app-container {
     width: 100%;
-    max-width: 480px;
-    height: 100vh;
+    max-width: 1140px;
+    min-height: 100vh;
+    margin: 0 auto;
     background-color: var(--bg-app);
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
     position: relative;
-    box-shadow: 0 0 25px rgba(0,0,0,0.5);
-    padding: 16px;
+    padding: 16px 16px 40px 16px;
+    box-sizing: border-box;
 }
 
-/* Anak langsung container tidak boleh menciut (container = flex column tinggi tetap) */
-.mobile-container > * {
-    flex-shrink: 0;
+@media (min-width: 768px) {
+    .mobile-container,
+    .app-container {
+        padding: 28px 32px 60px 32px;
+    }
 }
 
 /* Header & Typography */
@@ -47,44 +59,74 @@ body {
     font-size: 18px;
     font-weight: 800;
     color: var(--primary-red);
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     letter-spacing: 0.5px;
+    cursor: pointer;
+    user-select: none;
 }
 
 .page-title {
-    font-size: 18px;
+    font-size: 22px;
     font-weight: 700;
     color: var(--text-main);
+    line-height: 1.3;
 }
 
 .page-subtitle {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-muted);
-    margin-top: 2px;
-    margin-bottom: 12px;
+    line-height: 1.4;
+    margin-top: 4px;
+    margin-bottom: 18px;
+}
+
+@media (min-width: 768px) {
+    .main-header {
+        font-size: 22px;
+        margin-bottom: 8px;
+    }
+    .page-title {
+        font-size: 28px;
+    }
+    .page-subtitle {
+        font-size: 15px;
+        margin-bottom: 24px;
+    }
 }
 
 /* NAV TAB BAR KATEGORI (GAYA DARI SISI PENJUAL) */
 .nav-tab-bar {
-    flex-shrink: 0;           /* jangan ikut menciut saat isi halaman panjang */
+    flex-shrink: 0;
     display: flex;
     background-color: white;
     border-bottom: 1px solid var(--border-line);
-    padding: 0;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     overflow-x: auto;
     scrollbar-width: none;
     position: sticky;
-    top: -16px;
+    top: 0;
     z-index: 99;
     margin-left: -16px;
     margin-right: -16px;
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: 16px;
+    padding-right: 16px;
 }
 
 .nav-tab-bar::-webkit-scrollbar {
     display: none;
+}
+
+@media (min-width: 768px) {
+    .nav-tab-bar {
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 8px;
+        padding-right: 8px;
+        border-radius: 12px;
+        border: 1px solid var(--border-line);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        margin-bottom: 24px;
+    }
 }
 
 .tab-item {
@@ -101,11 +143,23 @@ body {
     transition: all 0.2s ease;
 }
 
+@media (min-width: 768px) {
+    .tab-item {
+        padding: 14px 20px;
+    }
+}
+
 .tab-label {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-muted);
     white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+    .tab-label {
+        font-size: 14px;
+    }
 }
 
 .tab-item.active {
@@ -127,78 +181,139 @@ body {
 }
 
 .section-title {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--text-main);
+    margin-bottom: 4px;
 }
 
 .section-desc {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-muted);
-    margin-bottom: 12px;
+    line-height: 1.4;
+    margin-bottom: 16px;
+}
+
+@media (min-width: 768px) {
+    .section-title {
+        font-size: 20px;
+    }
+    .section-desc {
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
 }
 
 .menu-container {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 12px;
+}
+
+@media (min-width: 640px) {
+    .menu-container {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .menu-container {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+    }
+}
+
+.menu-container > .empty-state,
+.menu-container > [style*="text-align:center"] {
+    grid-column: 1 / -1;
 }
 
 .card-menu {
     background-color: var(--card-bg);
-    border-radius: 12px;
-    padding: 12px;
+    border-radius: 14px;
+    padding: 14px;
     border: 1px solid var(--border-line);
     display: flex;
-    gap: 12px;
+    gap: 14px;
     align-items: center;
     position: relative;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card-menu:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    border-color: #CBD5E1;
 }
 
 .card-img {
-    width: 70px;
-    height: 70px;
+    width: 76px;
+    height: 76px;
     object-fit: cover;
-    border-radius: 8px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+    .card-img {
+        width: 84px;
+        height: 84px;
+        border-radius: 12px;
+    }
 }
 
 .card-content {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .card-title {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--text-main);
+    line-height: 1.3;
 }
 
 .variant {
-    font-size: 11px;
+    font-size: 13px;
     color: var(--text-muted);
+    line-height: 1.35;
     margin: 2px 0;
 }
 
 .price {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--primary-red);
+    margin-top: 2px;
 }
 
 .btn-pilih {
     background-color: #FEF2F2;
     color: var(--primary-red);
-    padding: 6px 12px;
+    padding: 8px 14px;
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     text-decoration: none;
-    display: inline-block;
-    transition: background 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, transform 0.15s ease;
 }
 
 .btn-pilih:hover {
     background-color: var(--primary-red);
     color: white;
+    transform: scale(1.03);
 }
 
 /* ANIMASI & POPUP KERANJANG */
@@ -208,20 +323,29 @@ body {
     left: 0;
     right: 0;
     width: 100%;
-    max-width: 480px;         /* sama dengan .mobile-container */
+    max-width: 580px;         /* proporsional di mobile & desktop */
     margin: 0 auto;
-    max-height: 70vh;
+    max-height: 75vh;
     overflow-y: auto;
     overscroll-behavior: contain;
     background: white;
     border-top-left-radius: 20px;
     border-top-right-radius: 20px;
-    padding: 16px;
-    box-shadow: 0 -6px 25px rgba(0,0,0,0.18);
+    padding: 16px 20px;
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
     z-index: 1000;
     transform: translateY(100%);
     opacity: 0;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+@media (min-width: 768px) {
+    .cart-popup {
+        bottom: 24px;
+        border-radius: 20px;
+        border: 1px solid var(--border-line);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+    }
 }
 
 .cart-popup.show-smooth {
@@ -246,7 +370,7 @@ body {
 }
 
 .badge-menu {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--primary-red);
     font-weight: 600;
 }
@@ -286,6 +410,7 @@ body {
     height: 48px;
     object-fit: cover;
     border-radius: 8px;
+    flex-shrink: 0;
 }
 
 .cart-item-placeholder {
@@ -296,8 +421,9 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
+    font-size: 12px;
     color: var(--text-muted);
+    flex-shrink: 0;
 }
 
 .cart-item-detail {
@@ -307,19 +433,19 @@ body {
 }
 
 .cart-item-title {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--text-main);
 }
 
 .cart-item-variant {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-muted);
 }
 
 /* FORMAT CATATAN RAPI PADA BARIS BARU */
 .item-catatan {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--primary-red);
     font-weight: 600;
     margin-top: 1px;
@@ -327,7 +453,7 @@ body {
 }
 
 .cart-item-price {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--primary-red);
 }
@@ -343,8 +469,8 @@ body {
 }
 
 .cnt-btn {
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     border-radius: 6px;
     border: none;
     background: white;
@@ -364,7 +490,7 @@ body {
 }
 
 .cnt-num {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     min-width: 16px;
     text-align: center;
@@ -379,27 +505,32 @@ body {
 .cart-subtotal, .cart-total-row {
     display: flex;
     justify-content: space-between;
-    font-size: 13px;
+    font-size: 14px;
     margin-bottom: 6px;
 }
 
 .cart-total-row {
     font-weight: 800;
     color: var(--text-main);
-    font-size: 15px;
+    font-size: 16px;
 }
 
 .btn-cek-keranjang {
     width: 100%;
-    padding: 12px;
+    padding: 14px;
     background-color: var(--primary-red);
     color: white;
     border: none;
-    border-radius: 10px;
+    border-radius: 12px;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 15px;
     cursor: pointer;
     margin-top: 10px;
+    transition: background-color 0.2s;
+}
+
+.btn-cek-keranjang:hover {
+    background-color: #BE123C;
 }
 
 /*buat login*/

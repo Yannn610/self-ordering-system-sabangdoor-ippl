@@ -29,7 +29,8 @@ function loadCart() {
     try {
         const data = JSON.parse(localStorage.getItem(CART_KEY));
         if (!Array.isArray(data)) return [];
-        return data.filter((i) => i && Number(i.qty) > 0);
+        // Tolak item jika qty <= 0 atau harga <= 0
+        return data.filter((i) => i && Number(i.qty) > 0 && Number(i.harga) > 0);
     } catch (e) {
         return [];
     }
@@ -93,7 +94,7 @@ function renderStep() {
             <div class="card-pembayaran" style="background:#fff; border-radius:16px; padding:16px; border:1px solid #E2E8F0; margin-bottom:14px;">
                 <h3 style="margin:0 0 10px 0; font-size:14px; font-weight:700;">Data Pemesan</h3>
                 <label style="font-size:12px; color:#64748B; display:block; margin-bottom:6px;">Nama Lengkap / Panggilan:</label>
-                <input type="text" id="inputNamaPembeli" class="input-nama" placeholder="Contoh: Budi Santoso" value="${esc(namaPembeli)}" 
+                <input type="text" id="inputNamaPembeli" class="input-nama" maxlength="50" placeholder="Contoh: Budi Santoso" value="${esc(namaPembeli)}" 
                     style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; border:1px solid #CBD5E1; font-family:inherit; font-size:14px;">
             </div>
 
@@ -234,6 +235,15 @@ async function eksekusiSimpanPesanan() {
         return;
     }
 
+    // Baca ulang localStorage tepat sebelum submit untuk mencegah manipulasi mid-session
+    const freshCart = loadCart();
+    if (freshCart.length === 0) {
+        localStorage.removeItem(CART_KEY);
+        alert("Data keranjang tidak valid atau kosong! Mengalihkan ke menu utama.");
+        window.location.href = "index.html";
+        return;
+    }
+
     const btnSubmit = document.getElementById("btnSubmitOrder") || document.getElementById("btnKonfirmasiQris");
     if (btnSubmit) {
         if (btnSubmit.disabled) return; // cegah klik ganda
@@ -243,20 +253,23 @@ async function eksekusiSimpanPesanan() {
 
     const tipePembayaranValid = selectedPayment === "qris" ? "qris" : "cash";
 
-    const itemsPayload = cartData.map(item => {
-        const qty = Number(item.qty) || 1;
-        const subtotal = Number(item.harga) || 0;
-        return {
-            nama_item: item.nama || "Menu",
-            varian: item.varian || "",
-            catatan: item.catatan || "",
-            jumlah: qty,
-            harga_satuan: Math.round(subtotal / qty),
-            subtotal: subtotal
-        };
-    });
-
     try {
+        const itemsPayload = freshCart.map(item => {
+            const qty = Number(item.qty) || 0;
+            const subtotal = Number(item.harga) || 0;
+            if (qty <= 0 || subtotal <= 0) {
+                throw new Error("Data keranjang tidak valid (harga/jumlah harus lebih dari 0).");
+            }
+            return {
+                nama_item: item.nama || "Menu",
+                varian: item.varian || "",
+                catatan: item.catatan || "",
+                jumlah: qty,
+                harga_satuan: Math.round(subtotal / qty),
+                subtotal: subtotal
+            };
+        });
+
         const { data, error } = await client.rpc("buat_pesanan", {
             p_nama: namaPembeli,
             p_tipe: tipePembayaranValid,
