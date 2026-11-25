@@ -36,11 +36,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(error.message || 'Email atau kata sandi salah!');
             }
 
+            // Verifikasi bahwa akun terdaftar sebagai pegawai aktif di tabel profiles
+            const { data: profile, error: profError } = await window.supabaseClient
+                .from('profiles')
+                .select('role')
+                .eq('id', data.user.id)
+                .maybeSingle();
+
+            if (profError || !profile || profile.role !== 'pegawai') {
+                await window.supabaseClient.auth.signOut();
+                throw new Error('Akun ini tidak memiliki hak akses pegawai.');
+            }
+
             // Simpan sesi login di browser (Session & Local Storage)
             const userSession = {
                 id: data.user.id,
                 email: data.user.email,
-                role: 'pegawai'
+                role: profile.role
             };
 
             sessionStorage.setItem("sabangdor_logged_in", "true");

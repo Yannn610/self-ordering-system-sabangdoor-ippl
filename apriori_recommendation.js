@@ -1,58 +1,61 @@
 (() => {
     'use strict';
 
-    const SEP = '\0';
-    const MAX_ROWS = 20000;
-    const IMG = 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80';
-    const SIZES = 'S / M / XL | 3 / 6 / 16 pcs';
+    const LIMITS = { MAX_NAME_LEN: 80, MAX_BASKET_ITEMS: 30, MAX_ORDERS: 20000 };
 
-    /** Katalog menu induk beserta metadata tampilan (harga mulai-dari, link detail, gambar). */
-    const MENU_CATALOG = {
-        "Mentai Ori":       { nama: "Mentai Ori",       variantInfo: SIZES, harga: 13000, hargaFormatted: "Mulai Rp13.000", linkDetail: "dimsum-mentai-ori.html",    imgSrc: IMG },
-        "Mentai Cheese":    { nama: "Mentai Cheese",    variantInfo: SIZES, harga: 15000, hargaFormatted: "Mulai Rp15.000", linkDetail: "dimsum-mentai-cheese.html", imgSrc: IMG },
-        "Mentai Tanuki":    { nama: "Mentai Tanuki",    variantInfo: SIZES, harga: 15000, hargaFormatted: "Mulai Rp15.000", linkDetail: "dimsum-mentai-tanuki.html", imgSrc: IMG },
-        "Dimsum Mix":       { nama: "Dimsum Mix",       variantInfo: "M / XL | S tidak tersedia", harga: 26000, hargaFormatted: "Mulai Rp26.000", linkDetail: "dimsum-mix.html", imgSrc: IMG },
-        "Dimsum Aja":       { nama: "Dimsum Aja",       variantInfo: SIZES, harga: 10000, hargaFormatted: "Mulai Rp10.000", linkDetail: "dimsum-aja.html", imgSrc: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=600&q=80" },
-        "Bakpao":           { nama: "Bakpao",           variantInfo: "5 Varian | 1 / 3 / 6 pcs", harga: 7000, hargaFormatted: "Mulai Rp7.000", linkDetail: "detail-menu-bakpao.html", imgSrc: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80" },
-        "Extra Mentai":     { nama: "Extra Mentai",     variantInfo: "Add-on Saus Mentai Gurih",    harga: 3000, hargaFormatted: "Rp3.000", linkDetail: "index.html#section-mentai", imgSrc: IMG },
-        "Chilli Oil Extra": { nama: "Chilli Oil Extra", variantInfo: "Add-on Minyak Cabai Spesial", harga: 3000, hargaFormatted: "Rp3.000", linkDetail: "index.html#section-mentai", imgSrc: IMG }
-    };
-
-    /**
-     * Membuat kunci pencarian dari nama menu agar ejaan lama dan nama katalog cocok.
-     * @param {string} s Nama menu.
-     * @returns {string} Kunci pencarian.
-     */
-    const key = s => s.toLowerCase().replace(/^dimsum /, '').replace('cheeze', 'cheese');
-    const BY_KEY = new Map(Object.keys(MENU_CATALOG).map(n => [key(n), n]));
-    BY_KEY.set('mentai mix', 'Dimsum Mix');
-
-    /**
-     * Mengambil metadata menu dari katalog, atau metadata cadangan untuk menu di luar katalog.
-     * @param {string} n Nama menu yang sudah dinormalisasi.
-     * @returns {object} Metadata menu.
-     */
-    const meta = n => Object.hasOwn(MENU_CATALOG, n)
-        ? MENU_CATALOG[n]
-        : { nama: n, harga: 10000, hargaFormatted: 'Rp10.000', linkDetail: 'index.html' };
-
-    /**
-     * Melipat nama varian ke menu induknya, mis. "Bakpao Salted Egg (1 pcs)" -> "Bakpao".
-     * Nama yang tidak dikenal (menu custom) dikembalikan apa adanya.
-     * @param {*} raw Nama menu mentah.
-     * @returns {string} Nama menu induk, atau string kosong jika input tidak valid.
-     */
-    function normalizeMenuName(raw) {
-        if (typeof raw !== 'string') return '';
-        const name = raw.trim().slice(0, 80);
-        const k = key(name.replace(/\s*[-(].*$/, ''));
-        return BY_KEY.get(k) || (k.startsWith('bakpao') ? 'Bakpao' : name);
+    /** Mencegah manipulasi objek katalog dari script eksternal */
+    function deepFreeze(obj) {
+        if (!obj || typeof obj !== 'object') return obj;
+        Object.freeze(obj);
+        Object.keys(obj).forEach(k => {
+            if (obj[k] && typeof obj[k] === 'object' && !Object.isFrozen(obj[k])) deepFreeze(obj[k]);
+        });
+        return obj;
     }
 
-    /**
-     * Membaca riwayat pesanan dari localStorage ("sabangdor_semua_pesanan").
-     * @returns {string[][]} Daftar keranjang, masing-masing berisi nama menu mentah; [] jika gagal.
-     */
+    /** Katalog metadata menu untuk integrasi antarmuka pengguna (UI) */
+    const MENU_CATALOG = deepFreeze({
+        "Mentai Ori": { nama: "Mentai Ori", variantInfo: "S / M / XL • 3 / 6 / 16 pcs", defaultVarian: "S (3 pcs)", harga: 13000, hargaFormatted: "Mulai Rp13.000", linkDetail: "dimsum-mentai-ori.html", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
+        "Mentai Cheese": { nama: "Mentai Cheese", variantInfo: "S / M / XL • 3 / 6 / 16 pcs", defaultVarian: "S (3 pcs)", harga: 15000, hargaFormatted: "Mulai Rp15.000", linkDetail: "dimsum-mentai-cheese.html", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
+        "Mentai Tanuki": { nama: "Mentai Tanuki", variantInfo: "S / M / XL • 3 / 6 / 16 pcs", defaultVarian: "S (3 pcs)", harga: 15000, hargaFormatted: "Mulai Rp15.000", linkDetail: "dimsum-mentai-tanuki.html", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
+        "Mentai Mix": { nama: "Mentai Mix", variantInfo: "M / XL • S tidak tersedia", defaultVarian: "M (6 pcs)", harga: 26000, hargaFormatted: "Mulai Rp26.000", linkDetail: "dimsum-mix.html", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
+        "Dimsum aja": { nama: "Dimsum aja", variantInfo: "S / M / XL • 3 / 6 / 16 pcs", defaultVarian: "S (3 pcs)", harga: 10000, hargaFormatted: "Mulai Rp10.000", linkDetail: "dimsum-aja.html", imgSrc: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=600&q=80" },
+        "Bakpao": { nama: "Bakpao", variantInfo: "5 Varian • 1 / 3 / 6 pcs", defaultVarian: "1 pcs: 1x Salted Egg", harga: 7000, hargaFormatted: "Mulai Rp7.000", linkDetail: "detail-menu-bakpao.html", imgSrc: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80" },
+        "Extra Mentai": { nama: "Extra Mentai", isAddon: true, variantInfo: "Tambahan Saus Mentai", defaultVarian: "M (+Rp3.000)", harga: 3000, hargaFormatted: "Rp3.000", linkDetail: "index.html#section-mentai", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" },
+        "Chilli Oil Extra": { nama: "Chilli Oil Extra", isAddon: true, variantInfo: "Tambahan Minyak Cabai", defaultVarian: "Tambahan", harga: 3000, hargaFormatted: "Rp3.000", linkDetail: "index.html#section-mentai", imgSrc: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" }
+    });
+
+    /** Menormalisasi nama menu dan mencegah injeksi XSS serta prototype pollution */
+    function normalizeMenuName(rawName) {
+        if (!rawName || typeof rawName !== 'string') return '';
+        const clean = rawName.replace(/[<>'"\\;`]/g, '').trim().slice(0, LIMITS.MAX_NAME_LEN);
+        if (!clean || clean === '__proto__' || clean === 'constructor' || clean === 'prototype') return '';
+
+        const lower = clean.toLowerCase();
+        if (lower.includes('bakpao')) return 'Bakpao';
+        if (lower.includes('extra mentai') || lower.includes('saus mentai')) return 'Extra Mentai';
+        if (lower.includes('chilli') || lower.includes('cabai') || lower.includes('minyak')) return 'Chilli Oil Extra';
+        if (lower.includes('cheese') || lower.includes('cheeze')) return 'Mentai Cheese';
+        if (lower.includes('tanuki')) return 'Mentai Tanuki';
+        if (lower.includes('mix')) return 'Dimsum Mix';
+        if (lower.includes('mentai') || lower.includes('ori')) return 'Mentai Ori';
+        if (lower.includes('dimsum')) return 'Dimsum Aja';
+        return clean;
+    }
+
+    /** Memvalidasi dan membatasi ukuran keranjang transaksi */
+    function sanitizeBasket(basket) {
+        if (!Array.isArray(basket)) return [];
+        const unique = new Set();
+        for (let i = 0; i < basket.length; i++) {
+            if (unique.size >= LIMITS.MAX_BASKET_ITEMS) break;
+            const item = normalizeMenuName(basket[i]);
+            if (item) unique.add(item);
+        }
+        return Array.from(unique);
+    }
+
+    /** Mengambil riwayat transaksi dari penyimpanan lokal browser (LocalStorage) */
     function getRealTransactions() {
         try {
             const orders = JSON.parse(localStorage.getItem('sabangdor_semua_pesanan')) || [];
@@ -62,23 +65,24 @@
         }
     }
 
-    /**
-     * Membaca riwayat pesanan dari tabel order_items di Supabase, dikelompokkan per id_order.
-     * @param {object} [client] Klien Supabase; default window.supabaseClient.
-     * @returns {Promise<string[][]>} Daftar keranjang berisi nama menu mentah; [] jika gagal.
-     */
-    async function getSupabaseTransactions(client) {
+    /** Mengambil riwayat transaksi riil dari Supabase database */
+    async function getSupabaseTransactions(customClient) {
+        const client = customClient || (typeof window !== 'undefined' ? window.supabaseClient : null);
+        if (!client || typeof client.from !== 'function') return [];
         try {
-            const { data } = await (client || window.supabaseClient).from('order_items')
+            const { data, error } = await client.from('order_items')
                 .select('id_order, nama_item, menus(nama_dimsum)')
-                .order('id_order', { ascending: false })
-                .limit(MAX_ROWS);
+                .limit(LIMITS.MAX_ORDERS);
+
+            if (error || !Array.isArray(data) || data.length === 0) return [];
             const orders = new Map();
-            for (const r of data || []) {
-                const name = r.nama_item || r.menus?.nama_dimsum;
-                if (!name) continue;
-                if (!orders.has(r.id_order)) orders.set(r.id_order, []);
-                orders.get(r.id_order).push(name);
+            for (const r of data) {
+                const id = r?.id_order;
+                const name = normalizeMenuName(r?.nama_item || r?.menus?.nama_dimsum);
+                if (id && name) {
+                    if (!orders.has(id)) orders.set(id, []);
+                    orders.get(id).push(name);
+                }
             }
             return [...orders.values()];
         } catch {
@@ -133,15 +137,17 @@
         return { frequentItemsets, rules, totalTransactions: total };
     }
 
-    /**
-     * Menyusun daftar menu terpopuler berdasarkan support.
-     * @param {Object<string,{count:number,support:number}>} frequentItemsets Hasil trainApriori().frequentItemsets.
-     * @param {number} [limit=5] Jumlah maksimum menu.
-     * @returns {object[]} Metadata menu ditambah support dan count, terurut dari yang terbanyak.
-     */
+    /** Menghasilkan daftar menu terpopuler berdasarkan nilai support transaksi riil */
     function getPopularRecommendations(frequentItemsets, limit = 5) {
-        return Object.keys(frequentItemsets || {})
-            .map(nama => ({ ...meta(nama), support: frequentItemsets[nama].support, count: frequentItemsets[nama].count }))
+        if (!frequentItemsets || typeof frequentItemsets !== 'object') return [];
+        const maxLimit = Math.max(1, Math.min(20, Number(limit) || 5));
+
+        return Object.keys(frequentItemsets)
+            .map(nama => ({
+                ...(MENU_CATALOG[nama] || { nama, harga: 10000, hargaFormatted: "Rp10.000", linkDetail: "index.html" }),
+                support: frequentItemsets[nama].support,
+                count: frequentItemsets[nama].count
+            }))
             .sort((a, b) => b.support - a.support)
             .slice(0, limit);
     }

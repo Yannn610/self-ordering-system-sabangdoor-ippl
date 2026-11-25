@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#ffffff" />
-  <title>SABANNGDOR</title>
+  <title>SABANGDOR - Keranjang</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style-keranjang.css" />
 </head>
 <body>
@@ -28,38 +31,39 @@
         <button id="clearBtn" class="link-btn" type="button">Kosongkan</button>
       </div>
 
-      <section class="card">
-        <h2 class="card-title">Pesanan kamu</h2>
-        <p class="card-sub">Cek lagi jumlah pesananmu sebelum lanjut.</p>
+      <div class="cart-layout">
+        <div class="cart-main-col">
+          <section class="card">
+            <h2 class="card-title">Pesanan kamu</h2>
+            <p class="card-sub">Cek lagi jumlah pesananmu sebelum lanjut.</p>
 
-        <ul id="cartList" class="item-list"></ul>
+            <ul id="cartList" class="item-list"></ul>
 
-        <div id="cartEmpty" class="empty" hidden>
-          <p class="empty-title">Keranjang masih kosong</p>
-          <p class="empty-sub">Tambahkan menu dulu untuk mulai memesan.</p>
-          <button id="emptyBackBtn" class="btn-outline" type="button">Pilih menu</button>
-        </div>
-      </section>
+            <div id="cartEmpty" class="empty" hidden>
+              <p class="empty-title">Keranjang masih kosong</p>
+              <p class="empty-sub">Tambahkan menu dulu untuk mulai memesan.</p>
+              <button id="emptyBackBtn" class="btn-outline" type="button">Pilih menu</button>
+            </div>
+          </section>
 
-      <section id="aiRecCard" class="card" style="display:none; margin-top:16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <h2 class="card-title" style="margin:0;">Cocok Ditambahin Ini (AI)</h2>
-          <span style="font-size:10px; font-weight:700; background:#FEE2E2; color:#E11D48; padding:3px 8px; border-radius:12px;">Apriori ML</span>
+          <section id="aiRecCard" class="card" hidden>
+            <h2 class="card-title">Pelengkap yang cocok</h2>
+            <p class="card-sub">Pelanggan lain sering memesan menu ini bersamaan:</p>
+            <div id="aiRecList" class="ai-rec-list"></div>
+          </section>
         </div>
-        <p class="card-sub" style="margin-bottom:12px;">Pelanggan lain sering memesan menu ini bersamaan:</p>
-        <div id="aiRecList" style="display:flex; flex-direction:column; gap:10px;"></div>
-      </section>
 
-      <section id="summary" class="card summary">
-        <div class="summary-row">
-          <span>Jumlah item</span>
-          <span id="cartCount">0 item</span>
-        </div>
-        <div class="summary-row">
-          <span>Subtotal</span>
-          <span id="cartSubtotal">Rp0</span>
-        </div>
-      </section>
+        <section id="summary" class="card summary">
+          <div class="summary-row">
+            <span>Jumlah item</span>
+            <span id="cartCount">0 item</span>
+          </div>
+          <div class="summary-row">
+            <span>Subtotal</span>
+            <span id="cartSubtotal">Rp0</span>
+          </div>
+        </section>
+      </div>
     </main>
 
     <footer class="bottom-bar">

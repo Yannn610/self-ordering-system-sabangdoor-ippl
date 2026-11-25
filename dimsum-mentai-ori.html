@@ -3,119 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detail Menu - Mentai Ori</title>
+    <title>Detail Menu - Mentai Ori | SABANGDOR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style-detail-menu.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 <div class="mobile-container">
-    <!-- Header -->
-    <div class="header">
-        <button class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
+    <header class="header">
+        <button type="button" class="back-btn" aria-label="Kembali ke menu utama">
+            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+        </button>
         <h1>Detail menu</h1>
         <div class="header-space"></div>
-    </div>
+    </header>
 
-    <!-- Outlet Info -->
     <div class="outlet-info">
         <div class="outlet-row">
             <span class="outlet-title">SABANGDOR</span>
-            <span class="outlet-action">03 • Pilih porsi</span>
+            <span class="outlet-action">Pilih porsi</span>
         </div>
         <p class="outlet-desc">Pesan dan ambil di outlet</p>
     </div>
 
-    <!-- Content Body -->
-    <div class="content-body">
-        <!-- Product Image / Banner -->
+    <main class="content-body">
         <div class="product-banner">
-            <div class="yellow-circle"></div>
             <div class="image-wrapper">
-                <img src="https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" alt="Mentai Ori">
+                <img src="https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" alt="Mentai Ori" width="600" height="360" fetchpriority="high">
             </div>
         </div>
 
-        <!-- Product Title & Desc -->
         <div class="product-info">
             <h2>Mentai Ori</h2>
             <p>Dimsum lembut dibalut saus mentai khas Sabangdor yang dipanggang aromatik.</p>
         </div>
 
-        <!-- Pilih Ukuran Porsi -->
-        <div class="section-card">
+        <section class="section-card">
             <h3>Pilih ukuran porsi</h3>
             <div class="size-options">
-                <div class="size-box">
+                <button type="button" class="size-box" aria-pressed="false">
                     <span class="size-name">S</span>
                     <span class="size-pcs">3 pcs</span>
                     <span class="size-price">Rp13.000</span>
-                </div>
-                <div class="size-box active">
+                </button>
+                <button type="button" class="size-box active" aria-pressed="true">
                     <span class="size-name">M</span>
                     <span class="size-pcs">6 pcs</span>
                     <span class="size-price">Rp23.000</span>
-                </div>
-                <div class="size-box">
+                </button>
+                <button type="button" class="size-box" aria-pressed="false">
                     <span class="size-name">XL</span>
                     <span class="size-pcs">16 pcs</span>
                     <span class="size-price">Rp60.000</span>
-                </div>
+                </button>
             </div>
-        </div>
+        </section>
 
-        <!-- Tambahan Opsional -->
-        <div class="section-card">
+        <section class="section-card">
             <div class="optional-header">
                 <h3>Tambahan opsional</h3>
                 <span class="badge-free">Free Chilli Oil</span>
             </div>
             <p class="optional-subtitle">Chilli oil gratis sudah termasuk dalam porsi.</p>
 
-            <div class="addon-item">
-                <div class="addon-label">
+            <label class="addon-item">
+                <span class="addon-label">
                     <span>Extra Mentai</span>
                     <span class="addon-price">+Rp3.000</span>
-                </div>
+                </span>
                 <input type="checkbox" class="checkbox-custom">
-            </div>
+            </label>
 
-            <div class="addon-item">
-                <div class="addon-label">
+            <label class="addon-item">
+                <span class="addon-label">
                     <span>Chilli Oil tambahan</span>
                     <span class="addon-price">+Rp3.000</span>
-                </div>
+                </span>
                 <input type="checkbox" class="checkbox-custom">
-            </div>
+            </label>
 
             <p class="addon-note">Extra Mentai hanya untuk M Rp3.000 / XL Rp5.000. Chilli oil tambahan terpisah dari yang gratis.</p>
-        </div>
+        </section>
 
-        <!-- Jumlah Porsi -->
-        <div class="section-card">
+        <section class="section-card">
             <div class="qty-container">
                 <div class="qty-label-group">
                     <h3>Jumlah porsi</h3>
                     <div class="qty-controls">
-                        <button class="qty-btn minus"><i class="fa-solid fa-minus"></i></button>
+                        <button type="button" class="qty-btn minus" aria-label="Kurangi jumlah porsi"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
                         <span class="qty-value">1 porsi</span>
-                        <button class="qty-btn plus"><i class="fa-solid fa-plus"></i></button>
+                        <button type="button" class="qty-btn plus" aria-label="Tambah jumlah porsi"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                     </div>
                 </div>
                 <span class="qty-pcs-info">6 pcs/porsi</span>
             </div>
-        </div>
+        </section>
 
-        <!-- Catatan Opsional -->
-        <div class="section-card">
-            <h3>Catatan (opsional)</h3>
+        <section class="section-card">
+            <h3><label for="detailNoteInput">Catatan (opsional)</label></h3>
             <div class="note-input-box">
-                <i class="fa-solid fa-pen"></i>
-                <input type="text" placeholder="Tulis catatan untuk menu ini">
+                <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                <input type="text" id="detailNoteInput" maxlength="200" placeholder="Tulis catatan untuk menu ini">
             </div>
-        </div>
+        </section>
 
-        <!-- Rincian Harga -->
-        <div class="section-card">
+        <section class="section-card">
             <h3>Rincian harga</h3>
             <div class="price-row">
                 <span>Harga porsi</span>
@@ -125,11 +119,10 @@
                 <span>Subtotal × 1 porsi</span>
                 <span>Rp23.000</span>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
 
-    <!-- Sticky Footer -->
-    <div class="sticky-footer">
+    <footer class="sticky-footer">
         <div class="footer-meta">
             <span>1 porsi • 6 pcs</span>
         </div>
@@ -138,15 +131,14 @@
                 <span class="total-text">Total produk</span>
                 <span class="total-price">Rp23.000</span>
             </div>
-            <button class="cart-btn">Tambah ke keranjang</button>
+            <button type="button" class="cart-btn">Tambah ke keranjang</button>
         </div>
-        <div class="home-indicator"></div>
-    </div>
+    </footer>
 </div>
 
-<!-- Tag pemanggil file JS terpisah -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="settings-store.js"></script>
 <script src="script-detail-menu.js"></script>
-</body>
-</html>
 </body>
 </html>

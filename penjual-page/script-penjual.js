@@ -8,6 +8,34 @@ const supabase = window.supabaseClient;
 
 const DEFAULT_MENU_IMG = "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80";
 
+function escHtml(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function safeImgSrc(src, fallback) {
+    const fb = fallback || DEFAULT_MENU_IMG;
+    if (!src || typeof src !== 'string') return fb;
+    const trimmed = src.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(trimmed)) return trimmed;
+    return fb;
+}
+
+function rupiah(n) {
+    return "Rp" + Math.round(Number(n) || 0).toLocaleString("id-ID");
+}
+
+function hargaMulai(item) {
+    const ukuran = Array.isArray(item.ukuran) ? item.ukuran : [];
+    if (!ukuran.length) return item.harga || 0;
+    return Math.min(...ukuran.map(u => Number(u.harga) || 0));
+}
+
 // Menu bawaan (sesuai judul kartu di halaman pembeli) untuk pengaturan stok habis/tersedia
 const MENU_BAWAAN = ['Mentai Ori', 'Mentai Cheese', 'Mentai Tanuki', 'Mentai Mix', 'Dimsum aja', 'Bakpao'];
 
@@ -24,13 +52,22 @@ function bersihkanSesiLokal() {
     localStorage.removeItem('pegawai_session');
 }
 
-// Wajib punya sesi Supabase yang valid: RLS hanya mengizinkan role 'authenticated'
-// untuk mengubah pesanan/menu. Flag di localStorage saja TIDAK cukup.
+// Wajib punya sesi Supabase yang valid & terdaftar sebagai pegawai di profiles
 async function checkAuth() {
     try {
         if (supabase) {
             const { data } = await supabase.auth.getSession();
-            if (data && data.session) return true;
+            if (data && data.session && data.session.user) {
+                const { data: profile, error: profError } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', data.session.user.id)
+                    .maybeSingle();
+                if (!profError && profile && profile.role === 'pegawai') {
+                    return true;
+                }
+                await supabase.auth.signOut();
+            }
         }
     } catch (e) {
         console.warn('Gagal membaca sesi login:', e);
@@ -86,6 +123,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (document.hidden) return;
         await checkAndRenderAuto();
     }, 3000);
+
+    // Tutup modal POS dengan Escape atau klik area luar modal (R-32)
+    document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('modalKasirOrder');
+        if (e.key === 'Escape' && modal && modal.style.display === 'flex') {
+            tutupModalKasirOrder();
+        }
+    });
+    const modal = document.getElementById('modalKasirOrder');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) tutupModalKasirOrder();
+        });
+    }
 });
 
 // ==========================================
@@ -304,31 +355,33 @@ async function renderStokMenu() {
     if (!grid) return;
 
     const customQrisImg = await getSetting('qris_image', '');
+    const qrisSafe = customQrisImg ? safeImgSrc(customQrisImg, '') : '';
     const habisBawaan = await ambilMenuHabisBawaan();
 
     let html = `
         <div class="card">
-            <div class="card-title">📷 Setting QRIS Outlet</div>
+            <div class="card-title">Pengaturan QRIS Outlet</div>
             <div class="card-sub">Gambar QRIS ini tampil di halaman checkout semua pembeli</div>
 
             <div class="upload-wrapper">
                 <button type="button" class="btn-upload-custom" onclick="document.getElementById('inputFileQris').click()">
-                    ➕ Pilih Gambar QRIS
+                    + Pilih Gambar QRIS
                 </button>
                 <input type="file" id="inputFileQris" accept="image/*" style="display:none;">
             </div>
             <div id="qrisMsg" class="mt-hint" style="margin-top:6px;"></div>
 
-            ${customQrisImg ? `
+            ${qrisSafe ? `
                 <div class="qris-preview-container">
-                    <span style="font-size:11px; font-weight:800; color:#10B981;">✓ Gambar QRIS Aktif</span><br>
-                    <img src="${escHtml(customQrisImg)}" class="qris-preview-img" alt="QRIS Toko">
-                    <div><button type="button" class="mt-btn-small danger" style="margin-top:6px;" onclick="hapusQris()">Hapus QRIS</button></div>
+                    <span style="font-size:12px; font-weight:700; color:#047857;">Gambar QRIS Aktif</span><br>
+                    <img src="${escHtml(qrisSafe)}" class="qris-preview-img" width="140" height="140" alt="QRIS Toko"><br>
+                    <button type="button" class="mt-btn-small danger" style="margin-top:8px;" onclick="hapusQris()">Hapus QRIS</button>
                 </div>
             ` : ''}
         </div>
 
         <div class="card-title" style="margin-top:10px;">Stok Menu Bawaan</div>
+        <div class="stok-grid">
     `;
 
     MENU_BAWAAN.forEach(nama => {
@@ -336,38 +389,40 @@ async function renderStokMenu() {
         html += `
             <div class="stok-card">
                 <div class="stok-left">
-                    <img src="${escHtml(DEFAULT_MENU_IMG)}" class="stok-thumb" alt="${escHtml(nama)}">
+                    <img src="${escHtml(DEFAULT_MENU_IMG)}" class="stok-thumb" width="44" height="44" alt="${escHtml(nama)}">
                     <span class="stok-name">${escHtml(nama)}</span>
                 </div>
-                <button class="btn-toggle-stok ${isHabis ? 'empty' : 'ready'}" data-nama="${escHtml(nama)}" onclick="toggleStokBawaan(this.dataset.nama)">
-                    ${isHabis ? '🔴 HABIS' : '🟢 TERSEDIA'}
+                <button type="button" class="btn-toggle-stok ${isHabis ? 'empty' : 'ready'}" data-nama="${escHtml(nama)}" onclick="toggleStokBawaan(this.dataset.nama)">
+                    <span class="status-dot" aria-hidden="true"></span>${isHabis ? 'HABIS' : 'TERSEDIA'}
                 </button>
             </div>
         `;
     });
 
-    html += `<div class="card-title" style="margin-top:14px;">Stok Menu Tambahan (Custom)</div>`;
+    html += `</div><div class="card-title" style="margin-top:14px;">Stok Menu Tambahan (Custom)</div>`;
 
     const customList = await fetchCustomMenusFromSupabase();
     if (customList.length === 0) {
         html += `<div class="empty-info">Belum ada menu custom terdaftar di database.</div>`;
-    }
-
-    customList.forEach(item => {
-        const isHabis = !!item.habis;
-        const imgUrl = item.img_url || DEFAULT_MENU_IMG;
-        html += `
-            <div class="stok-card">
-                <div class="stok-left">
-                    <img src="${escHtml(imgUrl)}" class="stok-thumb" alt="${escHtml(item.nama)}">
-                    <span class="stok-name">${escHtml(item.nama)}</span>
+    } else {
+        html += `<div class="stok-grid">`;
+        customList.forEach(item => {
+            const isHabis = !!item.habis;
+            const imgUrl = safeImgSrc(item.img_url, DEFAULT_MENU_IMG);
+            html += `
+                <div class="stok-card">
+                    <div class="stok-left">
+                        <img src="${escHtml(imgUrl)}" class="stok-thumb" width="44" height="44" alt="${escHtml(item.nama)}">
+                        <span class="stok-name">${escHtml(item.nama)}</span>
+                    </div>
+                    <button type="button" class="btn-toggle-stok ${isHabis ? 'empty' : 'ready'}" data-id="${escHtml(item.id)}" onclick="toggleStokCustom(this.dataset.id)">
+                        <span class="status-dot" aria-hidden="true"></span>${isHabis ? 'HABIS' : 'TERSEDIA'}
+                    </button>
                 </div>
-                <button class="btn-toggle-stok ${isHabis ? 'empty' : 'ready'}" data-id="${escHtml(item.id)}" onclick="toggleStokCustom(this.dataset.id)">
-                    ${isHabis ? '🔴 HABIS' : '🟢 TERSEDIA'}
-                </button>
-            </div>
-        `;
-    });
+            `;
+        });
+        html += `</div>`;
+    }
 
     grid.innerHTML = html;
 
@@ -383,6 +438,14 @@ async function renderStokMenu() {
 // Perkecil gambar QRIS lalu simpan ke database (dibaca pembeli di halaman checkout)
 function simpanQrisDariFile(file) {
     const msg = document.getElementById('qrisMsg');
+    if (!file || !file.type || !file.type.startsWith('image/')) {
+        if (msg) msg.textContent = 'Pilih file gambar yang valid (PNG/JPG/WebP).';
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        if (msg) msg.textContent = 'Ukuran gambar maksimal 5 MB.';
+        return;
+    }
     if (msg) msg.textContent = 'Menyimpan gambar QRIS...';
 
     const reader = new FileReader();
@@ -413,7 +476,7 @@ function simpanQrisDariFile(file) {
 }
 
 async function hapusQris() {
-    if (!confirm('Hapus gambar QRIS? Pembeli akan melihat gambar bawaan sampai Anda mengunggah yang baru.')) return;
+    if (!confirm('Hapus gambar QRIS? Pembeli akan diminta scan QRIS fisik di kasir sampai Anda mengunggah gambar baru.')) return;
     try {
         await setSetting('qris_image', '');
         await renderStokMenu();
@@ -453,8 +516,8 @@ function getItemSubtotal(i) {
 // Detail varian & catatan item (wajib terlihat jelas oleh dapur)
 function detailItemHtml(i) {
     let h = '';
-    if (i.varian) h += `<div style="font-size:0.72rem; color:var(--text-muted); font-weight:600;">${escHtml(i.varian)}</div>`;
-    if (i.catatan) h += `<div style="font-size:0.72rem; color:#B45309; font-weight:700;">📝 ${escHtml(i.catatan)}</div>`;
+    if (i.varian) h += `<div style="font-size:12px; color:var(--text-muted); font-weight:600;">${escHtml(i.varian)}</div>`;
+    if (i.catatan) h += `<div style="font-size:12px; color:#B45309; font-weight:700;">Catatan: ${escHtml(i.catatan)}</div>`;
     return h;
 }
 
@@ -486,7 +549,7 @@ function renderPembayaran(pesananList, force = false) {
         return;
     }
 
-    let html = '';
+    let html = '<div class="orders-grid">';
     pending.forEach((order) => {
         const itemList = order.items.map(i => {
             const itemHarga = getItemSubtotal(i);
@@ -506,20 +569,21 @@ function renderPembayaran(pesananList, force = false) {
                     <span class="order-id-txt">#${escHtml(order.idOrder)} (${escHtml(order.namaPelanggan)})</span>
                     <span class="order-badge-pay ${isTunais ? 'tag-cash' : 'tag-qris'}">${escHtml(order.metodeBayar)}</span>
                 </div>
-                <div style="font-size:0.75rem; color:var(--text-muted);">
-                    ${escHtml(order.waktu)} WIB | Total Tagihan: <b style="color:var(--primary-red); font-size:0.85rem;">${escHtml(order.totalHargaFormatted)}</b>
+                <div style="font-size:12.5px; color:var(--text-muted);">
+                    ${escHtml(order.waktu)} WIB | Total Tagihan: <b style="color:var(--primary-red); font-size:14px;">${escHtml(order.totalHargaFormatted)}</b>
                 </div>
                 <ul class="order-item-list">${itemList}</ul>
                 <div class="btn-group">
-                    <button class="btn-primary-merchant" onclick="konfirmasiPembayaran(${Number(order.db_id_order)})">
+                    <button type="button" class="btn-primary-merchant" onclick="konfirmasiPembayaran(${Number(order.db_id_order)})">
                         ${isTunais ? 'Terima Tunai & Kirim Dapur' : 'Verifikasi QRIS & Kirim Dapur'}
                     </button>
-                    <button class="btn-outline-merchant" onclick="cetakStrukLangsungById(${Number(order.db_id_order)})">🖨️ Struk</button>
-                    <button class="btn-outline-merchant" style="color:#B91C1C;" onclick="batalkanPesanan(${Number(order.db_id_order)})">Batalkan</button>
+                    <button type="button" class="btn-outline-merchant" onclick="cetakStrukLangsungById(${Number(order.db_id_order)})">Struk</button>
+                    <button type="button" class="btn-outline-merchant" style="color:#BE123C;" onclick="batalkanPesanan(${Number(order.db_id_order)})">Batalkan</button>
                 </div>
             </div>
         `;
     });
+    html += '</div>';
     container.innerHTML = html;
 }
 
@@ -575,7 +639,7 @@ function renderKitchenDisplay(pesananList, riwayatList) {
         return;
     }
 
-    let html = '';
+    let html = '<div class="orders-grid">';
     filtered.forEach((order) => {
         const itemList = order.items.map(i =>
             `<li><b>${i.qty || 1}x ${escHtml(i.nama)}</b>${detailItemHtml(i)}</li>`
@@ -585,17 +649,18 @@ function renderKitchenDisplay(pesananList, riwayatList) {
             <div class="order-card-merchant">
                 <div class="order-head">
                     <span class="order-id-txt">#${escHtml(order.idOrder)} (${escHtml(order.namaPelanggan)})</span>
-                    <span style="font-size:0.75rem; color:var(--text-muted);">${escHtml(order.waktu)} WIB</span>
+                    <span style="font-size:12px; color:var(--text-muted);">${escHtml(order.waktu)} WIB</span>
                 </div>
                 <ul class="order-item-list">${itemList}</ul>
         `;
 
         if (activeKanbanFilter === 'proses-masak') {
-            html += `<button class="btn-primary-merchant" style="background:#3B82F6;" onclick="tandaiSelesaiDapur(${Number(order.db_id_order)})">Selesai & Sajikan</button></div>`;
+            html += `<button type="button" class="btn-primary-merchant" style="background:#1D4ED8;" onclick="tandaiSelesaiDapur(${Number(order.db_id_order)})">Selesai & Sajikan</button></div>`;
         } else {
-            html += `<p style="font-size:0.8rem; color:var(--green-text); font-weight:800;">Status: Selesai & Disajikan</p></div>`;
+            html += `<p style="font-size:13px; color:var(--green-text); font-weight:700;">Status: Selesai & Disajikan</p></div>`;
         }
     });
+    html += '</div>';
 
     container.innerHTML = html;
 }
@@ -653,21 +718,22 @@ function renderRiwayat(riwayatList) {
         return;
     }
 
-    let html = '';
+    let html = '<div class="orders-grid">';
     filteredList.forEach((item) => {
         html += `
             <div class="order-card-merchant" style="flex-direction:row; justify-content:space-between; align-items:center;">
                 <div>
-                    <div style="font-weight:800; font-size:0.85rem;">#${escHtml(item.idOrder)} (${escHtml(item.namaPelanggan)} - ${escHtml(item.metodeBayar)})</div>
-                    <div style="font-size:0.75rem; color:var(--text-muted);">${escHtml(item.tanggal)} ${escHtml(item.waktu)} WIB</div>
+                    <div style="font-weight:800; font-size:14px;">#${escHtml(item.idOrder)} (${escHtml(item.namaPelanggan)} - ${escHtml(item.metodeBayar)})</div>
+                    <div style="font-size:12px; color:var(--text-muted);">${escHtml(item.tanggal)} ${escHtml(item.waktu)} WIB</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <b style="color:var(--green-text); font-size:0.85rem;">${escHtml(item.totalHargaFormatted)}</b>
-                    <button class="btn-outline-merchant" style="padding:6px 10px; font-size:0.75rem;" onclick="cetakStrukLangsungById(${Number(item.db_id_order)})">🖨️</button>
+                    <b style="color:var(--green-text); font-size:14px;">${escHtml(item.totalHargaFormatted)}</b>
+                    <button type="button" class="btn-outline-merchant" style="padding:8px 12px; font-size:12px;" onclick="cetakStrukLangsungById(${Number(item.db_id_order)})">Struk</button>
                 </div>
             </div>
         `;
     });
+    html += '</div>';
     container.innerHTML = html;
 }
 
@@ -772,20 +838,6 @@ let mtEditingId = null;
 let mtFotoData = '';
 let mtMsgTimer = null;
 
-function escHtml(str) {
-    return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-function rupiah(n) {
-    return "Rp" + Math.round(n).toLocaleString("id-ID");
-}
-
-function hargaMulai(item) {
-    const ukuran = Array.isArray(item.ukuran) ? item.ukuran : [];
-    if (!ukuran.length) return item.harga || 0;
-    return Math.min(...ukuran.map(u => Number(u.harga) || 0));
-}
-
 function mtBarisUkuranHtml(u) {
     u = u || {};
     return `
@@ -831,6 +883,16 @@ function mtShowMsg(teks, tipe) {
 function mtPilihFoto(input) {
     const file = input.files && input.files[0];
     if (!file) return;
+    if (!file.type || !file.type.startsWith('image/')) {
+        mtShowMsg('Pilih file gambar yang valid (PNG/JPG/WebP).', 'error');
+        input.value = '';
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        mtShowMsg('Ukuran foto maksimal 5 MB.', 'error');
+        input.value = '';
+        return;
+    }
 
     const reader = new FileReader();
     reader.onload = function (evt) {
@@ -888,7 +950,7 @@ async function mtIsiKategori(pilih) {
 
     const sekarang = pilih !== undefined ? pilih : sel.value;
     sel.innerHTML = daftar.map(k => `<option value="${escHtml(k)}">${escHtml(k)}</option>`).join('')
-        + `<option value="${MT_KATEGORI_BARU}">➕ Kategori baru…</option>`;
+        + `<option value="${MT_KATEGORI_BARU}">+ Kategori baru…</option>`;
     sel.dataset.sig = sig;
 
     const cocok = daftar.find(k => k.toLowerCase() === String(sekarang || '').toLowerCase());
@@ -916,7 +978,7 @@ function mtResetForm() {
     if (prev) prev.src = DEFAULT_MENU_IMG;
 
     const title = document.getElementById('mtFormTitle');
-    if (title) title.textContent = '➕ Tambah Menu Baru';
+    if (title) title.textContent = 'Tambah Menu Baru';
     const btn = document.getElementById('btnSimpanMenuCustom');
     if (btn) btn.textContent = 'Simpan Menu';
     const batal = document.getElementById('btnBatalEditMenu');
@@ -930,16 +992,16 @@ async function renderMenuTambahan() {
     if (!document.getElementById('formTambahMenuCustom')) {
         secEl.innerHTML = `
             <div class="card" id="mt-form-card">
-                <div class="card-title" id="mtFormTitle">➕ Tambah Menu Baru</div>
+                <div class="card-title" id="mtFormTitle">Tambah Menu Baru</div>
                 <div class="card-sub">Menu langsung tampil di halaman pembeli lengkap dengan detail menunya</div>
 
                 <form id="formTambahMenuCustom" onsubmit="handleSimpanMenuCustom(event)" novalidate>
                     <div class="mt-field">
                         <label>Foto menu</label>
                         <div class="mt-photo">
-                            <img id="mtFotoPreview" src="${DEFAULT_MENU_IMG}" alt="Foto menu">
+                            <img id="mtFotoPreview" src="${DEFAULT_MENU_IMG}" width="72" height="72" alt="Foto menu">
                             <div>
-                                <button type="button" class="btn-upload-custom" onclick="document.getElementById('mtFotoInput').click()">📷 Pilih Foto</button>
+                                <button type="button" class="btn-upload-custom" onclick="document.getElementById('mtFotoInput').click()">Pilih Foto</button>
                                 <input type="file" id="mtFotoInput" accept="image/*" style="display:none;" onchange="mtPilihFoto(this)">
                                 <div class="mt-hint">Kosongkan jika belum ada foto</div>
                             </div>
@@ -1019,12 +1081,12 @@ async function renderMenuTambahan() {
         const hargaMin = ukuran.length ? hargaMulai(item) : (item.harga || 0);
         const infoUkuran = ukuran.length > 1 ? ` • ${ukuran.length} ukuran` : '';
         const infoAddon = Array.isArray(item.addon) && item.addon.length ? ` • ${item.addon.length} tambahan` : '';
-        const imgSrc = item.img_url || DEFAULT_MENU_IMG;
+        const imgSrc = safeImgSrc(item.img_url, DEFAULT_MENU_IMG);
         const idAttr = escHtml(item.id);
         return `
             <div class="stok-card" style="margin-top:10px;">
                 <div class="stok-left">
-                    <img src="${escHtml(imgSrc)}" class="stok-thumb" alt="${escHtml(item.nama)}">
+                    <img src="${escHtml(imgSrc)}" class="stok-thumb" width="44" height="44" alt="${escHtml(item.nama)}">
                     <div class="mt-info">
                         <div class="stok-name"><b>${escHtml(item.nama)}</b></div>
                         <div class="mt-meta">${escHtml(item.kategori || 'Umum')} • Mulai ${rupiah(hargaMin)}${infoUkuran}${infoAddon}</div>
@@ -1059,7 +1121,7 @@ async function mulaiEditMenuCustom(menuId) {
     (Array.isArray(m.ukuran) ? m.ukuran : []).forEach(u => mtTambahUkuran(u));
     (Array.isArray(m.addon) ? m.addon : []).forEach(a => mtTambahAddon(a));
 
-    document.getElementById('mtFormTitle').textContent = '✏️ Edit Menu';
+    document.getElementById('mtFormTitle').textContent = 'Edit Menu';
     document.getElementById('btnSimpanMenuCustom').textContent = 'Simpan Perubahan';
     document.getElementById('btnBatalEditMenu').style.display = '';
 
@@ -1191,10 +1253,10 @@ function updateUIStatusToko() {
 
     if (tokoBuka) {
         btn.className = 'btn-toggle-stok ready';
-        btn.innerText = '🟢 TOKO BUKA';
+        btn.innerHTML = '<span class="status-dot" aria-hidden="true"></span>TOKO BUKA';
     } else {
         btn.className = 'btn-toggle-stok empty';
-        btn.innerText = '🔴 TOKO TUTUP';
+        btn.innerHTML = '<span class="status-dot" aria-hidden="true"></span>TOKO TUTUP';
     }
 }
 
@@ -1335,11 +1397,11 @@ function onKasirMenuChange() {
                 <div id="bakpaoVariantList" style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
                     ${varianBakpao.map(v => `
                         <div class="bakpao-var-row" data-varian="${escHtml(v)}" style="display: flex; justify-content: space-between; align-items: center; background: #F8FAFC; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-line);">
-                            <span style="font-size: 0.85rem; font-weight: 700;">${v}</span>
+                            <span style="font-size: 13.5px; font-weight: 700;">${escHtml(v)}</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <button type="button" class="mt-btn-x" onclick="ubahQtyBakpaoKasir('${v}', -1)">-</button>
-                                <span class="bakpao-qty-val" id="b_qty_${v}" style="font-weight: 800; min-width: 20px; text-align: center;">0</span>
-                                <button type="button" class="mt-btn-x" style="background: var(--red-tint); color: var(--primary-red);" onclick="ubahQtyBakpaoKasir('${v}', 1)">+</button>
+                                <button type="button" class="mt-btn-x" aria-label="Kurangi ${escHtml(v)}" data-varian="${escHtml(v)}" onclick="ubahQtyBakpaoKasir(this.dataset.varian, -1)">-</button>
+                                <span class="bakpao-qty-val" id="b_qty_${escHtml(v)}" style="font-weight: 800; min-width: 20px; text-align: center;">0</span>
+                                <button type="button" class="mt-btn-x" aria-label="Tambah ${escHtml(v)}" data-varian="${escHtml(v)}" style="background: var(--red-tint); color: #BE123C;" onclick="ubahQtyBakpaoKasir(this.dataset.varian, 1)">+</button>
                             </div>
                         </div>
                     `).join('')}
@@ -1373,6 +1435,7 @@ function onKasirMenuChange() {
                 <input type="checkbox" class="kasir-addon-checkbox" value="${idx}" onchange="updateKasirAddonSelection()">
             </label>
         `).join('');
+        refreshLabelHargaAddonKasir();
     } else {
         addonContainer.innerHTML = `<span style="font-size: 11px; color: var(--text-muted);">Tidak ada tambahan opsional untuk menu ini.</span>`;
     }
@@ -1381,6 +1444,8 @@ function onKasirMenuChange() {
 let kasirBakpaoQtyMap = { 'Salted Egg': 0, 'Kacang Tanah': 0, 'Ayam Casio': 0, 'Coklat Lumer': 0, 'Keju Susu': 0 };
 
 function ubahQtyBakpaoKasir(varian, delta) {
+    const totalSekarang = Object.values(kasirBakpaoQtyMap).reduce((s, v) => s + (v || 0), 0);
+    if (delta > 0 && totalSekarang >= 99) return;
     kasirBakpaoQtyMap[varian] = Math.max(0, (kasirBakpaoQtyMap[varian] || 0) + delta);
     const el = document.getElementById(`b_qty_${varian}`);
     if (el) el.innerText = kasirBakpaoQtyMap[varian];
@@ -1441,6 +1506,21 @@ function updateKasirAddonSelection() {
 
 function refreshLabelHargaAddonKasir() {
     if (!kasirSelectedMenu || !kasirSelectedMenu.addon) return;
+    const isSizeS = kasirActiveSize && String(kasirActiveSize.nama).trim().toUpperCase() === 'S';
+    document.querySelectorAll('.kasir-addon-checkbox').forEach(cb => {
+        const addonObj = kasirSelectedMenu.addon[cb.value];
+        if (!addonObj) return;
+        const isExtraMentai = /extra mentai/i.test(addonObj.name || addonObj.nama || '');
+        const label = cb.closest('label');
+        if (isExtraMentai && isSizeS) {
+            cb.checked = false;
+            cb.disabled = true;
+            if (label) label.style.opacity = '0.45';
+        } else {
+            cb.disabled = false;
+            if (label) label.style.opacity = '';
+        }
+    });
     document.querySelectorAll('.kasir-addon-harga').forEach(el => {
         const addonObj = kasirSelectedMenu.addon[el.dataset.idx];
         if (addonObj) el.textContent = '+Rp' + hargaAddonKasir(addonObj, kasirActiveSize).toLocaleString('id-ID');
@@ -1462,8 +1542,8 @@ function tambahItemKeKasirCartCustom() {
         const hargaTotalBakpao = hitungHargaBakpaoKasir(totalPcs);
         const varianDetail = pickedVarians.map(v => `${kasirBakpaoQtyMap[v]}x ${v}`).join(', ');
         const rawQty = parseInt(document.getElementById('kasirQtyItem').value, 10);
-        if (isNaN(rawQty) || rawQty < 1) {
-            alert('Jumlah porsi minimal 1!');
+        if (isNaN(rawQty) || rawQty < 1 || rawQty > 99) {
+            alert('Jumlah porsi harus antara 1 sampai 99!');
             return;
         }
         const qtyPorsi = rawQty;
@@ -1499,8 +1579,8 @@ function tambahItemKeKasirCartCustom() {
     }
 
     const rawQtyReg = parseInt(document.getElementById('kasirQtyItem').value, 10);
-    if (isNaN(rawQtyReg) || rawQtyReg < 1) {
-        alert('Jumlah porsi minimal 1!');
+    if (isNaN(rawQtyReg) || rawQtyReg < 1 || rawQtyReg > 99) {
+        alert('Jumlah porsi harus antara 1 sampai 99!');
         return;
     }
     const qty = rawQtyReg;
@@ -1519,6 +1599,10 @@ function tambahItemKeKasirCartCustom() {
 
     const existingIdx = kasirCart.findIndex(i => i.namaMenu === kasirSelectedMenu.nama && i.varian === varianFinal);
     if (existingIdx > -1) {
+        if (kasirCart[existingIdx].qty + qty > 99) {
+            alert('Maksimal 99 porsi per item pesanan.');
+            return;
+        }
         kasirCart[existingIdx].qty += qty;
         kasirCart[existingIdx].subtotal += hargaTotalPerItem;
     } else {
@@ -1635,7 +1719,7 @@ async function prosesSimpanPesananKasir() {
     if (btnSimpan) btnSimpan.disabled = true;
 
     try {
-        const namaFinal = `[${sumberPesanan}] ${namaPelanggan}`;
+        const namaFinal = namaPelangganInput ? `[${sumberPesanan}] ${namaPelangganInput}` : sumberPesanan;
         const itemsPayload = kasirCart.map(i => ({
             nama_item: i.namaItemDb,
             varian: i.varian,

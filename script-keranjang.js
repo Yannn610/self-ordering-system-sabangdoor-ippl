@@ -9,13 +9,25 @@ const MAX_QTY = 99;
 // ===== State =====
 let cart = loadCart();
 
+function safeImgSrc(src) {
+    if (!src || typeof src !== "string") return "";
+    const trimmed = src.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(trimmed)) return trimmed;
+    return "";
+}
+
 function loadCart() {
     try {
         const data = JSON.parse(localStorage.getItem(CART_KEY));
         if (!Array.isArray(data)) return [];
         return data
-            .filter((i) => i && Number(i.qty) > 0)
-            .map((i) => ({ ...i, qty: Number(i.qty), harga: Number(i.harga) || 0 }));
+            .filter((i) => i && Number.isFinite(Number(i.qty)) && Number(i.qty) >= 1 && Number(i.harga) > 0)
+            .map((i) => ({
+                ...i,
+                qty: Math.min(MAX_QTY, Math.max(1, Math.round(Number(i.qty)))),
+                harga: Math.round(Number(i.harga))
+            }));
     } catch (e) {
         return [];
     }
@@ -56,18 +68,19 @@ const ICON_MINUS = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" s
 const ICON_PLUS = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 6h8M6 2v8"/></svg>';
 
 function itemTemplate(item, index) {
-    const img = item.imgSrc
-        ? `<img src="${esc(item.imgSrc)}" alt="${esc(item.nama)}" style="width:56px;height:56px;flex:none;object-fit:cover;border-radius:12px;">`
+    const safeImg = safeImgSrc(item.imgSrc);
+    const img = safeImg
+        ? `<img src="${esc(safeImg)}" alt="${esc(item.nama)}" width="56" height="56" class="item-thumb">`
         : "";
     const note = item.catatan
-        ? `<p class="item-desc" style="color:#d72c2c;">Catatan: "${esc(item.catatan)}"</p>`
+        ? `<p class="item-note">Catatan: "${esc(item.catatan)}"</p>`
         : "";
 
     return `
     <li class="item" data-index="${index}">
-      <div class="item-info" style="display:flex;align-items:center;gap:12px;">
+      <div class="item-info">
         ${img}
-        <div style="min-width:0;">
+        <div class="item-text-wrap">
           <p class="item-name">${esc(item.nama)}</p>
           <p class="item-desc">${esc(item.varian)}</p>
           ${note}
@@ -82,7 +95,7 @@ function itemTemplate(item, index) {
     </li>`;
 }
 
-// ===== Render =====
+// Render tampilan keranjang
 function render() {
     const isEmpty = cart.length === 0;
     const total = formatRupiah(totalPrice());
@@ -99,8 +112,8 @@ function render() {
     $("checkoutBtn").disabled = isEmpty;
 
     const recCard = $("aiRecCard");
-    if (recCard) {
-        recCard.style.display = isEmpty ? "none" : "block";
+    if (recCard && isEmpty) {
+        recCard.hidden = true;
     }
 
     if (!isEmpty) {
@@ -157,11 +170,29 @@ $("clearBtn").addEventListener("click", () => {
 });
 
 // ===== Checkout =====
-$("checkoutBtn").addEventListener("click", () => {
+$("checkoutBtn").addEventListener("click", async () => {
     if (cart.length === 0) {
         showToast("Keranjang masih kosong.");
         return;
     }
+
+    if (window.SabangdorSettings) {
+        try { await window.SabangdorSettings.muat(); } catch (e) {}
+    }
+    if (localStorage.getItem("sabangdor_status_toko") === "tutup") {
+        showToast("Mohon maaf, toko sedang tutup.");
+        return;
+    }
+
+    try {
+        const menuStatus = JSON.parse(localStorage.getItem("sabangdor_menu_status")) || [];
+        const habisSet = new Set(menuStatus.filter(m => m && m.status === "habis").map(m => String(m.nama || "").trim().toLowerCase()));
+        const itemHabis = cart.find(i => habisSet.has(String(i.nama || "").trim().toLowerCase()));
+        if (itemHabis) {
+            showToast(`"${itemHabis.nama}" sedang habis. Hapus item untuk melanjutkan.`);
+            return;
+        }
+    } catch (e) {}
 
     saveCart();
     try {
@@ -219,50 +250,71 @@ async function renderAiCrossSelling() {
         }
     }
 
-    // 3. Jika belum ada aturan asosiasi dari transaksi nyata, sembunyikan kartu
+    // Saring menu yang sedang habis agar tidak ditawarkan ke pembeli
+    let habisSet = new Set();
+    try {
+        const menuStatus = JSON.parse(localStorage.getItem("sabangdor_menu_status")) || [];
+        habisSet = new Set(menuStatus.filter(m => m && m.status === "habis").map(m => String(m.nama || "").trim().toLowerCase()));
+    } catch (e) {}
+    recommendations = recommendations.filter(r => r && !habisSet.has(String(r.nama || "").trim().toLowerCase()));
+
     if (recommendations.length === 0) {
-        if (recCard) recCard.style.display = "none";
+        if (recCard) recCard.hidden = true;
         return;
     }
 
-    if (recCard) recCard.style.display = "block";
+    if (recCard) recCard.hidden = false;
 
-    // Render rekomendasi pelengkap terbaik
-    listEl.innerHTML = recommendations.slice(0, 2).map((item, idx) => `
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <img src="${esc(item.imgSrc)}" alt="${esc(item.nama)}" style="width:44px; height:44px; object-fit:cover; border-radius:8px;">
-                <div>
-                    <p style="font-size:13px; font-weight:700; color:#1E293B; margin:0;">${esc(item.nama)}</p>
-                    <p style="font-size:11px; color:#E11D48; font-weight:600; margin:2px 0 0 0;">${formatRupiah(item.harga || 7000)}</p>
+    const topRecs = recommendations.slice(0, 2);
+    listEl.innerHTML = topRecs.map((item, idx) => {
+        const recImg = safeImgSrc(item.imgSrc);
+        return `
+        <div class="ai-rec-row">
+            <div class="ai-rec-left">
+                ${recImg ? `<img src="${esc(recImg)}" alt="${esc(item.nama)}" width="48" height="48" class="ai-rec-img">` : ''}
+                <div class="item-text-wrap">
+                    <p class="ai-rec-name">${esc(item.nama)}</p>
+                    <p class="ai-rec-price">${formatRupiah(item.harga || 3000)}</p>
                 </div>
             </div>
-            <button type="button" class="btn-outline" style="padding:6px 12px; font-size:12px; border-radius:8px; cursor:pointer;" onclick="tambahItemRekomendasi(${idx})">
+            <button type="button" class="btn-outline ai-rec-btn" onclick="tambahItemRekomendasi(${idx})">
                 + Tambah
             </button>
         </div>
-    `).join("");
+    `;
+    }).join("");
 
-    window._currentAiRecs = recommendations.slice(0, 2);
+    window._currentAiRecs = topRecs;
 }
 
 function tambahItemRekomendasi(index) {
     const item = (window._currentAiRecs || [])[index];
     if (!item) return;
 
-    const existingIdx = cart.findIndex(c => (c.nama || "").toLowerCase() === item.nama.toLowerCase());
+    const varianValid = item.defaultVarian || item.variantInfo || "S (3 pcs)";
+    const existingIdx = cart.findIndex(c =>
+        (c.nama || "").toLowerCase() === item.nama.toLowerCase()
+        && (c.varian || "").toLowerCase() === varianValid.toLowerCase()
+        && !(c.catatan || "")
+    );
     if (existingIdx >= 0) {
+        if (cart[existingIdx].qty >= MAX_QTY) {
+            showToast(`Maksimal ${MAX_QTY} porsi per item.`);
+            return;
+        }
+        const unitPrice = Math.round(cart[existingIdx].harga / cart[existingIdx].qty);
         cart[existingIdx].qty += 1;
-        const unitPrice = cart[existingIdx].harga / (cart[existingIdx].qty - 1);
         cart[existingIdx].harga = Math.round(unitPrice * cart[existingIdx].qty);
+        cart[existingIdx].hargaFormatted = formatRupiah(cart[existingIdx].harga);
     } else {
+        const hargaBaru = Number(item.harga) || 3000;
         cart.push({
             nama: item.nama,
-            varian: item.variantInfo || "Porsi Pilihan",
-            harga: item.harga || 7000,
-            hargaFormatted: formatRupiah(item.harga || 7000),
+            varian: varianValid,
+            harga: hargaBaru,
+            hargaFormatted: formatRupiah(hargaBaru),
             qty: 1,
-            imgSrc: item.imgSrc || ""
+            imgSrc: safeImgSrc(item.imgSrc)
         });
     }
 

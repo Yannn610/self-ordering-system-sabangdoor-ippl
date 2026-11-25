@@ -14,6 +14,57 @@ const DETAIL_DEFAULT_IMG = (typeof window.DEFAULT_MENU_IMG !== 'undefined' && wi
     ? window.DEFAULT_MENU_IMG
     : 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80';
 
+function safeImgSrc(src, fallback) {
+    const fb = fallback || DETAIL_DEFAULT_IMG;
+    if (!src || typeof src !== 'string') return fb;
+    const trimmed = src.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(trimmed)) return trimmed;
+    return fb;
+}
+
+const MAX_QTY = 99;
+
+function tampilkanStatusTutupAtauHabis(alasanTeks, labelTombol) {
+    const body = document.getElementById('content-body') || document.querySelector('.content-body');
+    const cartBtn = document.querySelector('.cart-btn');
+    if (cartBtn) {
+        cartBtn.disabled = true;
+        cartBtn.textContent = labelTombol;
+    }
+    if (body && !document.getElementById('detail-status-banner')) {
+        const banner = document.createElement('div');
+        banner.id = 'detail-status-banner';
+        banner.setAttribute('role', 'status');
+        banner.style.cssText = 'background:#FEF2F2;border:1px solid #BE123C;color:#BE123C;padding:12px 14px;border-radius:12px;font-size:13px;font-weight:700;text-align:center;';
+        banner.textContent = alasanTeks;
+        body.insertBefore(banner, body.firstChild);
+    }
+}
+
+async function cekKetersediaanDetail() {
+    if (window.SabangdorSettings) {
+        try { await window.SabangdorSettings.muat(); } catch (e) { /* pakai cache lokal */ }
+    }
+    if (localStorage.getItem('sabangdor_status_toko') === 'tutup') {
+        tampilkanStatusTutupAtauHabis('Toko sedang tutup dan belum menerima pesanan saat ini.', 'Toko Tutup');
+        return false;
+    }
+    const titleEl = document.querySelector('.product-info h2');
+    const namaMenu = titleEl ? titleEl.textContent.trim().toLowerCase() : '';
+    if (namaMenu) {
+        try {
+            const list = JSON.parse(localStorage.getItem('sabangdor_menu_status')) || [];
+            const habis = list.some(i => i && i.status === 'habis' && String(i.nama || '').trim().toLowerCase() === namaMenu);
+            if (habis) {
+                tampilkanStatusTutupAtauHabis('Maaf, menu ini sedang habis.', 'Stok Habis');
+                return false;
+            }
+        } catch (e) {}
+    }
+    return true;
+}
+
 // ==========================================
 // MENU TAMBAHAN: isi halaman detail dibuat otomatis dari data kasir
 // Hanya aktif di detail-menu-custom.html?id=... (butuh menu-custom-store.js).
@@ -63,11 +114,11 @@ window.__detailReady = (async function () {
     const aktif = ukuran[0];
 
     const ukuranHtml = ukuran.map((u, i) => `
-        <div class="size-box${i === 0 ? ' active' : ''}">
+        <button type="button" class="size-box${i === 0 ? ' active' : ''}" aria-pressed="${i === 0 ? 'true' : 'false'}">
             <span class="size-name">${escHtml(u.nama)}</span>
             <span class="size-pcs">${escHtml(u.porsi || u.ket || '1 porsi')}</span>
             <span class="size-price">${rupiah(u.harga)}</span>
-        </div>`).join('');
+        </button>`).join('');
 
     let tambahanHtml = '';
     if (addon.length || menu.gratis) {
@@ -76,32 +127,31 @@ window.__detailReady = (async function () {
             ? `${escHtml(menu.gratis)} sudah termasuk dalam porsi.`
             : 'Pilih tambahan sesuai selera.';
         const addonHtml = addon.map(a => `
-            <div class="addon-item">
-                <div class="addon-label">
+            <label class="addon-item">
+                <span class="addon-label">
                     <span>${escHtml(a.nama)}</span>
                     <span class="addon-price">+${rupiah(a.harga)}</span>
-                </div>
+                </span>
                 <input type="checkbox" class="checkbox-custom">
-            </div>`).join('');
+            </label>`).join('');
 
         tambahanHtml = `
-        <div class="section-card">
+        <section class="section-card">
             <div class="optional-header">
                 <h3>Tambahan opsional</h3>
                 ${badge}
             </div>
             <p class="optional-subtitle">${subtitle}</p>
             ${addonHtml}
-        </div>`;
+        </section>`;
     }
 
     const deskripsi = menu.deskripsi ? `<p>${escHtml(menu.deskripsi)}</p>` : '';
 
     body.innerHTML = `
         <div class="product-banner">
-            <div class="yellow-circle"></div>
             <div class="image-wrapper">
-                <img src="${escHtml(menu.img || DETAIL_DEFAULT_IMG)}" alt="${escHtml(menu.nama)}">
+                <img src="${escHtml(safeImgSrc(menu.img, DETAIL_DEFAULT_IMG))}" alt="${escHtml(menu.nama)}" width="600" height="360" fetchpriority="high">
             </div>
         </div>
 
@@ -110,36 +160,36 @@ window.__detailReady = (async function () {
             ${deskripsi}
         </div>
 
-        <div class="section-card">
+        <section class="section-card">
             <h3>Pilih ukuran porsi</h3>
             <div class="size-options">${ukuranHtml}</div>
-        </div>
+        </section>
 
         ${tambahanHtml}
 
-        <div class="section-card">
+        <section class="section-card">
             <div class="qty-container">
                 <div class="qty-label-group">
                     <h3>Jumlah porsi</h3>
                     <div class="qty-controls">
-                        <button class="qty-btn minus"><i class="fa-solid fa-minus"></i></button>
+                        <button type="button" class="qty-btn minus" aria-label="Kurangi jumlah porsi"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
                         <span class="qty-value">1 porsi</span>
-                        <button class="qty-btn plus"><i class="fa-solid fa-plus"></i></button>
+                        <button type="button" class="qty-btn plus" aria-label="Tambah jumlah porsi"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                     </div>
                 </div>
                 <span class="qty-pcs-info">${escHtml(aktif ? (aktif.porsi || aktif.ket || '1 porsi') : '')}/porsi</span>
             </div>
-        </div>
+        </section>
 
-        <div class="section-card">
-            <h3>Catatan (opsional)</h3>
+        <section class="section-card">
+            <h3><label for="detailNoteInput">Catatan (opsional)</label></h3>
             <div class="note-input-box">
-                <i class="fa-solid fa-pen"></i>
-                <input type="text" placeholder="Tulis catatan untuk menu ini">
+                <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                <input type="text" id="detailNoteInput" maxlength="200" placeholder="Tulis catatan untuk menu ini">
             </div>
-        </div>
+        </section>
 
-        <div class="section-card">
+        <section class="section-card">
             <h3>Rincian harga</h3>
             <div class="price-row">
                 <span>Harga porsi</span>
@@ -149,11 +199,13 @@ window.__detailReady = (async function () {
                 <span>Subtotal × 1 porsi</span>
                 <span>${rupiah(aktif ? aktif.harga : 0)}</span>
             </div>
-        </div>`;
+        </section>`;
 })();
 
 document.addEventListener('DOMContentLoaded', async function () {
-    // Pada halaman menu custom, tunggu sampai isi halaman selesai dirender
+    // Halaman Bakpao ditangani oleh listener khusus paket Bakpao agar tombol keranjang tidak terpicu ganda
+    if (document.querySelectorAll('.variant-item').length > 0) return;
+
     if (window.__detailReady) {
         try { await window.__detailReady; } catch (e) { console.error(e); }
     }
@@ -251,23 +303,45 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     sizeBoxes.forEach(box => {
-        box.addEventListener('click', function () {
-            sizeBoxes.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
+        if (!box.classList.contains('info-only')) {
+            if (box.tagName !== 'BUTTON') {
+                box.setAttribute('role', 'button');
+                box.setAttribute('tabindex', '0');
+            }
+            box.setAttribute('aria-pressed', box.classList.contains('active') ? 'true' : 'false');
+        }
+        const selectSize = function () {
+            sizeBoxes.forEach(b => {
+                b.classList.remove('active');
+                if (!b.classList.contains('info-only')) b.setAttribute('aria-pressed', 'false');
+            });
+            box.classList.add('active');
+            box.setAttribute('aria-pressed', 'true');
 
-            const priceEl = this.querySelector('.size-price');
-            const pcsEl = this.querySelector('.size-pcs');
+            const priceEl = box.querySelector('.size-price');
+            const pcsEl = box.querySelector('.size-pcs');
             if (priceEl) basePrice = parseRupiah(priceEl.innerText);
             if (pcsEl) currentPcsText = pcsEl.innerText;
 
             updateCalculations();
-        });
+        };
+        box.addEventListener('click', selectSize);
+        if (box.tagName !== 'BUTTON' && !box.classList.contains('info-only')) {
+            box.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    selectSize();
+                }
+            });
+        }
     });
 
     if (plusBtn) {
         plusBtn.addEventListener('click', function () {
-            currentQty++;
-            updateCalculations();
+            if (currentQty < MAX_QTY) {
+                currentQty++;
+                updateCalculations();
+            }
         });
     }
 
@@ -288,10 +362,12 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     initActiveSize();
     updateCalculations();
+    const tersedia = await cekKetersediaanDetail();
 
     const cartBtn = document.querySelector('.cart-btn');
     if (cartBtn) {
         cartBtn.addEventListener('click', function () {
+            if (cartBtn.disabled) return;
             const productTitleEl = document.querySelector('.product-info h2');
             if (!productTitleEl) return;
             const namaProduk = productTitleEl.innerText;
@@ -336,7 +412,11 @@ document.addEventListener('DOMContentLoaded', async function () {
                 imgSrc: produkImgSrc
             };
 
-            let keranjang = JSON.parse(localStorage.getItem('sabangdor_cart')) || [];
+            let keranjang = [];
+            try {
+                const parsed = JSON.parse(localStorage.getItem('sabangdor_cart'));
+                if (Array.isArray(parsed)) keranjang = parsed;
+            } catch (e) {}
             keranjang.push(itemBaru);
 
             localStorage.setItem('sabangdor_cart', JSON.stringify(keranjang));
@@ -347,8 +427,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 });
 
-// LOGIKA PAKET BAKPAO
-document.addEventListener('DOMContentLoaded', function () {
+// Logika paket hemat Bakpao
+document.addEventListener('DOMContentLoaded', async function () {
     const variantItems = document.querySelectorAll('.variant-item');
     if (variantItems.length === 0) return;
 
@@ -366,6 +446,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (!cartBtn) return;
 
+    let bakpaoTersedia = true;
     const qty = {};
     variantItems.forEach(item => { qty[item.dataset.name] = 0; });
 
@@ -434,7 +515,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (subtotalEl) subtotalEl.innerText = formatRupiah(total);
         if (totalPriceEl) totalPriceEl.innerText = formatRupiah(total);
         if (footerMetaEl) footerMetaEl.innerText = `${totalPcs} pcs bakpao`;
-        if (cartBtn) cartBtn.disabled = false;
+        if (cartBtn) cartBtn.disabled = !bakpaoTersedia;
     }
 
     variantItems.forEach(item => {
@@ -444,6 +525,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (plusBtn) {
             plusBtn.addEventListener('click', () => {
+                const totalSaatIni = Object.values(qty).reduce((s, v) => s + v, 0);
+                if (totalSaatIni >= MAX_QTY) return;
                 qty[name] = (qty[name] || 0) + 1;
                 render();
             });
@@ -460,6 +543,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (cartBtn) {
         cartBtn.addEventListener('click', function () {
+            if (cartBtn.disabled || !bakpaoTersedia) return;
             const picked = Object.keys(qty).filter(n => qty[n] > 0);
             if (picked.length === 0) return;
 
@@ -468,7 +552,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const totalText = totalPriceEl ? totalPriceEl.innerText : 'Rp0';
             const imgEl = document.querySelector('.product-banner img');
             const noteInput = document.querySelector('.note-input-box input');
-            const catatan = noteInput ? noteInput.value.trim() : '';
+            const catatan = noteInput ? noteInput.value.trim().slice(0, 200) : '';
 
             const itemBaru = {
                 nama: 'Bakpao',
@@ -480,7 +564,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 imgSrc: imgEl ? imgEl.src : ''
             };
 
-            let keranjang = JSON.parse(localStorage.getItem('sabangdor_cart')) || [];
+            let keranjang = [];
+            try {
+                const parsed = JSON.parse(localStorage.getItem('sabangdor_cart'));
+                if (Array.isArray(parsed)) keranjang = parsed;
+            } catch (e) {}
             keranjang.push(itemBaru);
             localStorage.setItem('sabangdor_cart', JSON.stringify(keranjang));
             localStorage.setItem('buka_popup_keranjang', 'true');
@@ -490,6 +578,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     render();
+    bakpaoTersedia = await cekKetersediaanDetail();
+    if (!bakpaoTersedia && cartBtn) cartBtn.disabled = true;
 });
 
 // EVENT LISTENER TOMBOL KEMBALI

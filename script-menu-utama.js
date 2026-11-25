@@ -19,12 +19,31 @@ var MAP_SECTION_DEFAULT = {
 
 var menuRekomendasiAI = [];
 
-// Helper Utility
 function escHtml(str) {
     if (typeof str !== 'string') return str || '';
     return str.replace(/[&<>"']/g, function(m) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
     });
+}
+
+function safeUrl(url, fallback) {
+    var fb = fallback || 'index.html';
+    if (!url || typeof url !== 'string') return fb;
+    var trimmed = url.trim();
+    if (/^(index|dimsum-[a-z-]+|detail-menu-[a-z-]+|keranjang|checkout)\.html([?#].*)?$/i.test(trimmed)) {
+        return trimmed;
+    }
+    if (/^#[a-z0-9_-]+$/i.test(trimmed)) return trimmed;
+    return fb;
+}
+
+function safeImgSrc(src, fallback) {
+    var fb = fallback || DEFAULT_IMG_FALLBACK;
+    if (!src || typeof src !== 'string') return fb;
+    var trimmed = src.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(trimmed)) return trimmed;
+    return fb;
 }
 
 function slugKategori(str) {
@@ -73,6 +92,16 @@ window.pilihKategori = function(event, targetId) {
 
 // 3. Lifecycle Initialization
 window.addEventListener('DOMContentLoaded', function() {
+    if (window.location.hash) {
+        var targetHash = window.location.hash.slice(1);
+        var matchingTab = Array.from(document.querySelectorAll('.tab-item')).find(function(t) {
+            return (t.getAttribute('onclick') || '').indexOf(targetHash) !== -1;
+        });
+        if (document.getElementById(targetHash) && matchingTab) {
+            window.pilihKategori({ currentTarget: matchingTab, preventDefault: function() {} }, targetHash);
+        }
+    }
+
     sinkronkanRekomendasiAI();
     renderMenuCustom();
     updateTampilanStokPembeli();
@@ -141,22 +170,23 @@ function renderRekomendasiAI() {
 
     if (!menuRekomendasiAI || menuRekomendasiAI.length === 0) {
         container.innerHTML = `
-            <div style="text-align:center; padding: 24px 12px; background: #fff; border-radius: 12px; border: 1px solid var(--border-line); width: 100%;">
-                <p style="font-size: 13px; font-weight: 700; color: var(--text-muted); margin: 0;">Belum ada rekomendasi menu saat ini.</p>
+            <div class="empty-state">
+                <strong>Belum ada data rekomendasi menu</strong>
+                <p>Pilih kategori Dimsum Mentai, Dimsum aja, atau Bakpao di atas untuk melihat seluruh menu.</p>
             </div>
         `;
         return;
     }
 
     container.innerHTML = menuRekomendasiAI.map(function(item) {
-        var imgSrc = item.imgSrc || DEFAULT_IMG_FALLBACK;
+        var imgSrc = safeImgSrc(item.imgSrc, DEFAULT_IMG_FALLBACK);
         var hargaTxt = item.hargaFormatted || ('Mulai Rp' + Number(item.harga || 0).toLocaleString('id-ID'));
         var varianTxt = item.variantInfo || item.varian || 'S / M / XL • 3 / 6 / 16 pcs';
-        var linkUrl = item.linkDetail || 'index.html';
+        var linkUrl = safeUrl(item.linkDetail, 'index.html');
 
         return `
             <div class="card-menu">
-                <img src="${escHtml(imgSrc)}" alt="${escHtml(item.nama)}" class="card-img">
+                <img src="${escHtml(imgSrc)}" alt="${escHtml(item.nama)}" width="76" height="76" class="card-img">
                 <div class="card-content">
                     <h3 class="card-title">${escHtml(item.nama)}</h3>
                     <p class="variant">${escHtml(varianTxt)}</p>
@@ -203,11 +233,23 @@ async function sinkronkanRekomendasiAI() {
     renderRekomendasiAI();
 }
 
+function readSafeCart() {
+    try {
+        var raw = JSON.parse(localStorage.getItem('sabangdor_cart'));
+        if (!Array.isArray(raw)) return [];
+        return raw.filter(function(i) {
+            return i && Number.isFinite(Number(i.qty)) && Number(i.qty) >= 1 && Number(i.harga) > 0;
+        });
+    } catch (e) {
+        return [];
+    }
+}
+
 // 5. Popup Keranjang Pesanan
 function renderPopupKeranjang() {
     var harusBukaPopup = localStorage.getItem('buka_popup_keranjang');
     var cartPopup = document.getElementById('cart-popup');
-    var keranjang = JSON.parse(localStorage.getItem('sabangdor_cart')) || [];
+    var keranjang = readSafeCart();
 
     if (keranjang.length > 0 && (harusBukaPopup === 'true' || (cartPopup && !cartPopup.classList.contains('hidden')))) {
         if (cartPopup) {
@@ -225,8 +267,9 @@ function renderPopupKeranjang() {
                     ? `<div class="item-catatan">Catatan: "${escHtml(item.catatan)}"</div>`
                     : '';
 
-                var imageHtml = item.imgSrc
-                    ? `<img src="${escHtml(item.imgSrc)}" alt="${escHtml(item.nama)}" class="cart-item-img">`
+                var safeImg = item.imgSrc ? safeImgSrc(item.imgSrc, '') : '';
+                var imageHtml = safeImg
+                    ? `<img src="${escHtml(safeImg)}" alt="${escHtml(item.nama)}" width="48" height="48" class="cart-item-img">`
                     : `<div class="cart-item-placeholder">Menu</div>`;
 
                 var itemDiv = document.createElement('div');
@@ -242,9 +285,9 @@ function renderPopupKeranjang() {
                         </div>
                     </div>
                     <div class="cart-item-counter">
-                        <button class="cnt-btn" onclick="ubahQtyPopup(${index}, -1)">-</button>
+                        <button type="button" class="cnt-btn" aria-label="Kurangi ${escHtml(item.nama)}" onclick="ubahQtyPopup(${index}, -1)">-</button>
                         <span class="cnt-num">${item.qty}</span>
-                        <button class="cnt-btn plus" onclick="ubahQtyPopup(${index}, 1)">+</button>
+                        <button type="button" class="cnt-btn plus" aria-label="Tambah ${escHtml(item.nama)}" onclick="ubahQtyPopup(${index}, 1)">+</button>
                     </div>
                 `;
                 containerItems.appendChild(itemDiv);
@@ -268,16 +311,19 @@ function renderPopupKeranjang() {
 }
 
 window.ubahQtyPopup = function(index, delta) {
-    var keranjang = JSON.parse(localStorage.getItem('sabangdor_cart')) || [];
+    var keranjang = readSafeCart();
 
     if (keranjang[index]) {
-        var hargaSatuan = keranjang[index].harga / keranjang[index].qty;
-        keranjang[index].qty += delta;
+        var qtySekarang = Math.max(1, parseInt(keranjang[index].qty, 10) || 1);
+        var hargaSatuan = Math.round((Number(keranjang[index].harga) || 0) / qtySekarang);
+        var nextQty = qtySekarang + delta;
+        if (nextQty > 99) return;
 
-        if (keranjang[index].qty <= 0) {
+        if (nextQty <= 0) {
             keranjang.splice(index, 1);
         } else {
-            keranjang[index].harga = hargaSatuan * keranjang[index].qty;
+            keranjang[index].qty = nextQty;
+            keranjang[index].harga = hargaSatuan * nextQty;
             keranjang[index].hargaFormatted = 'Rp' + keranjang[index].harga.toLocaleString('id-ID');
         }
 
@@ -308,16 +354,34 @@ window.keHalamanKeranjang = function() {
 
 // 6. Sinkronisasi Ketersediaan Stok
 function updateTampilanStokPembeli() {
-    var menuStatus = JSON.parse(localStorage.getItem('sabangdor_menu_status')) || [];
+    var menuStatus = [];
+    try {
+        var parsedStatus = JSON.parse(localStorage.getItem('sabangdor_menu_status'));
+        if (Array.isArray(parsedStatus)) menuStatus = parsedStatus;
+    } catch (e) {}
+
+    var tokoTutup = localStorage.getItem('sabangdor_status_toko') === 'tutup';
 
     document.querySelectorAll('.card-menu').forEach(function(card) {
         card.style.opacity = '1';
         card.style.filter = 'none';
         var btn = card.querySelector('.btn-pilih');
-        if (btn && btn.innerText !== 'Habis' && btn.innerText !== 'Toko Tutup') {
+        if (!btn) return;
+        if (!btn.dataset.origHref && btn.getAttribute('href')) {
+            btn.dataset.origHref = btn.getAttribute('href');
+        }
+        if (!tokoTutup) {
+            btn.innerText = '+ Pilih menu';
+            btn.style.backgroundColor = '';
+            btn.style.color = '';
+            btn.style.borderColor = '';
             btn.style.pointerEvents = 'auto';
+            btn.removeAttribute('aria-disabled');
+            if (btn.dataset.origHref) btn.setAttribute('href', btn.dataset.origHref);
         }
     });
+
+    if (tokoTutup) return;
 
     getCustomMenus().forEach(function(m) {
         if (!m.habis) return;
@@ -327,10 +391,10 @@ function updateTampilanStokPembeli() {
     });
 
     menuStatus.forEach(function(item) {
-        if (item.status === 'habis') {
+        if (item && item.status === 'habis') {
             document.querySelectorAll('.card-menu').forEach(function(card) {
                 var titleEl = card.querySelector('.card-title');
-                if (titleEl && titleEl.innerText.trim().toLowerCase() === item.nama.toLowerCase()) {
+                if (titleEl && titleEl.innerText.trim().toLowerCase() === String(item.nama || '').toLowerCase()) {
                     tandaiKartuHabis(card);
                 }
             });
@@ -339,14 +403,19 @@ function updateTampilanStokPembeli() {
 }
 
 function tandaiKartuHabis(card) {
-    card.style.opacity = '0.5';
+    card.style.opacity = '0.65';
     card.style.filter = 'grayscale(100%)';
     var btn = card.querySelector('.btn-pilih');
     if (btn) {
+        if (!btn.dataset.origHref && btn.getAttribute('href')) {
+            btn.dataset.origHref = btn.getAttribute('href');
+        }
         btn.innerText = 'Habis';
-        btn.style.backgroundColor = '#94A3B8';
+        btn.style.backgroundColor = '#475569';
+        btn.style.borderColor = '#475569';
         btn.style.color = '#FFFFFF';
         btn.style.pointerEvents = 'none';
+        btn.setAttribute('aria-disabled', 'true');
         btn.removeAttribute('href');
     }
 }
@@ -385,9 +454,10 @@ function teksVarianCustom(menu) {
 }
 
 function kartuMenuCustom(menu) {
+    var img = safeImgSrc(menu.img || menu.img_url, DEFAULT_IMG_FALLBACK);
     return `
         <div class="card-menu" data-custom="1" data-menu-id="${escHtml(menu.id)}">
-            <img src="${escHtml(menu.img || DEFAULT_IMG_FALLBACK)}" alt="${escHtml(menu.nama)}" class="card-img">
+            <img src="${escHtml(img)}" alt="${escHtml(menu.nama)}" width="76" height="76" class="card-img">
             <div class="card-content">
                 <h3 class="card-title">${escHtml(menu.nama)}</h3>
                 <p class="variant">${escHtml(teksVarianCustom(menu))}</p>
@@ -422,6 +492,7 @@ function renderMenuCustom() {
             var secId = 'section-custom-' + slugKategori(kategori);
 
             var tab = document.createElement('button');
+            tab.type = 'button';
             tab.className = 'tab-item';
             tab.dataset.custom = '1';
             tab.setAttribute('onclick', `pilihKategori(event, '${secId}')`);
@@ -429,16 +500,18 @@ function renderMenuCustom() {
             if (secId === activeId) tab.classList.add('active');
             navBar.appendChild(tab);
 
-            var secCustom = document.createElement('div');
+            var secCustom = document.createElement('section');
             secCustom.id = secId;
             secCustom.className = 'menu-section' + (secId === activeId ? ' active' : '');
             secCustom.dataset.custom = '1';
             secCustom.innerHTML = `
                 <h2 class="section-title">${escHtml(kategori)}</h2>
-                <p class="section-desc"></p>
+                <p class="section-desc">Menu pilihan tambahan outlet</p>
                 <div class="menu-container"></div>
             `;
-            cartPopup.parentNode.insertBefore(secCustom, cartPopup);
+            var mainEl = document.querySelector('main');
+            if (mainEl) mainEl.appendChild(secCustom);
+            else cartPopup.parentNode.insertBefore(secCustom, cartPopup);
             container = secCustom.querySelector('.menu-container');
         }
 
@@ -475,10 +548,15 @@ function cekDanTerapkanStatusToko() {
 
     if (isTutup) {
         document.querySelectorAll('.btn-pilih').forEach(function(btn) {
+            if (!btn.dataset.origHref && btn.getAttribute('href')) {
+                btn.dataset.origHref = btn.getAttribute('href');
+            }
             btn.innerText = 'Toko Tutup';
-            btn.style.backgroundColor = '#94A3B8';
+            btn.style.backgroundColor = '#475569';
+            btn.style.borderColor = '#475569';
             btn.style.color = '#FFFFFF';
             btn.style.pointerEvents = 'none';
+            btn.setAttribute('aria-disabled', 'true');
             btn.removeAttribute('href');
         });
 
@@ -492,7 +570,6 @@ function cekDanTerapkanStatusToko() {
         if (btnCekKeranjang) {
             btnCekKeranjang.disabled = true;
             btnCekKeranjang.style.pointerEvents = 'none';
-            btnCekKeranjang.style.backgroundColor = '#94A3B8';
             btnCekKeranjang.innerText = 'Toko Tutup';
         }
 
@@ -501,12 +578,13 @@ function cekDanTerapkanStatusToko() {
             if (container) {
                 bannerTutup = document.createElement('div');
                 bannerTutup.id = 'banner-toko-tutup';
-                bannerTutup.style.cssText = 'background: #FEF2F2; border: 1px solid #E11D48; color: #E11D48; padding: 12px; border-radius: 12px; text-align: center; font-weight: 700; margin-bottom: 16px; font-size: 13px;';
-                bannerTutup.innerText = '🔴 Mohon Maaf, Toko Saat Ini Sedang Tutup & Belum Menerima Pesanan.';
+                bannerTutup.className = 'store-status-banner';
+                bannerTutup.setAttribute('role', 'status');
+                bannerTutup.innerText = 'Toko sedang tutup dan belum menerima pesanan saat ini.';
                 
-                var headerTitle = document.getElementById('staff-trigger');
-                if (headerTitle && headerTitle.nextSibling) {
-                    container.insertBefore(bannerTutup, headerTitle.nextSibling);
+                var siteHeader = document.querySelector('.site-header');
+                if (siteHeader && siteHeader.nextSibling) {
+                    container.insertBefore(bannerTutup, siteHeader.nextSibling);
                 } else {
                     container.insertBefore(bannerTutup, container.firstChild);
                 }

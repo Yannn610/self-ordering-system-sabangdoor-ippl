@@ -3,34 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detail Menu</title>
+    <title>Detail Menu - SABANGDOR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style-detail-menu.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 <div class="mobile-container">
-    <!-- Header -->
-    <div class="header">
-        <button class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
+    <header class="header">
+        <button type="button" class="back-btn" aria-label="Kembali ke menu utama">
+            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+        </button>
         <h1>Detail menu</h1>
         <div class="header-space"></div>
-    </div>
+    </header>
 
-    <!-- Outlet Info -->
     <div class="outlet-info">
         <div class="outlet-row">
             <span class="outlet-title">SABANGDOR</span>
-            <span class="outlet-action">03 • Pilih porsi</span>
+            <span class="outlet-action">Pilih porsi</span>
         </div>
         <p class="outlet-desc">Pesan dan ambil di outlet</p>
     </div>
 
-    <!-- Isi halaman dibuat otomatis dari data menu oleh render-detail-custom.js -->
-    <div class="content-body" id="content-body"></div>
+    <main class="content-body" id="content-body">
+        <div class="section-card">
+            <h3>Memuat detail menu...</h3>
+            <p class="optional-subtitle">Menyiapkan pilihan ukuran dan harga terbaru.</p>
+        </div>
+    </main>
 
-    <!-- Sticky Footer -->
-    <div class="sticky-footer">
+    <footer class="sticky-footer">
         <div class="footer-meta">
             <span>1 porsi</span>
         </div>
@@ -39,13 +44,11 @@
                 <span class="total-text">Total produk</span>
                 <span class="total-price">Rp0</span>
             </div>
-            <button class="cart-btn">Tambah ke keranjang</button>
+            <button type="button" class="cart-btn">Tambah ke keranjang</button>
         </div>
-        <div class="home-indicator"></div>
-    </div>
+    </footer>
 </div>
 
-<!-- Urutan penting: data -> logika detail menu (isi halaman otomatis + harga/keranjang) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="settings-store.js"></script>

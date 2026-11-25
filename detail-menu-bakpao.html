@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detail Menu - Bakpao</title>
+    <title>Detail Menu - Bakpao | SABANGDOR</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style-detail-menu.css">
-    <link rel="stylesheet" href="style-detail-menu.css">
 </head>
 <body>
 <div class="mobile-container">
-    <div class="header">
-        <button class="back-btn" aria-label="Kembali"><i class="fa-solid fa-chevron-left"></i></button>
+    <header class="header">
+        <button type="button" class="back-btn" aria-label="Kembali ke menu utama">
+            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+        </button>
         <h1>Detail menu</h1>
         <div class="header-space"></div>
-    </div>
+    </header>
 
     <div class="outlet-info">
         <div class="outlet-row">
@@ -27,10 +28,10 @@
         <p class="outlet-desc">Pesan dan ambil di outlet</p>
     </div>
 
-    <div class="content-body">
+    <main class="content-body">
         <div class="product-banner">
             <div class="image-wrapper">
-                <img src="https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80" alt="Bakpao" onerror="this.style.visibility='hidden'">
+                <img src="https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80" alt="Bakpao" width="600" height="360" fetchpriority="high">
             </div>
         </div>
 
@@ -39,8 +40,7 @@
             <p>5 varian, semua Rp7.000 per pcs. Bebas campur varian dalam satu pesanan.</p>
         </div>
 
-        <!-- Harga paket -->
-        <div class="section-card">
+        <section class="section-card">
             <h3>Harga paket</h3>
             <div class="size-options" id="package-info">
                 <div class="size-box info-only">
@@ -57,72 +57,71 @@
                 </div>
             </div>
             <p class="addon-note">Harga otomatis dihitung paling hemat dari kombinasi paket 6, 3, dan 1 pcs.</p>
-        </div>
+        </section>
 
-        <!-- Pilih varian -->
-        <div class="section-card">
+        <section class="section-card">
             <h3>Pilih varian &amp; jumlah</h3>
 
             <div class="variant-item" data-name="Salted Egg">
-                <div class="variant-thumb">S</div>
+                <div class="variant-thumb" aria-hidden="true">S</div>
                 <span class="variant-name">Salted Egg</span>
                 <div class="qty-controls">
-                    <button class="qty-btn minus" aria-label="Kurangi Salted Egg"><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="qty-btn minus" aria-label="Kurangi Salted Egg"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
                     <span class="qty-value">0</span>
-                    <button class="qty-btn plus" aria-label="Tambah Salted Egg"><i class="fa-solid fa-plus"></i></button>
+                    <button type="button" class="qty-btn plus" aria-label="Tambah Salted Egg"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                 </div>
             </div>
 
             <div class="variant-item" data-name="Kacang Tanah">
-                <div class="variant-thumb">K</div>
+                <div class="variant-thumb" aria-hidden="true">K</div>
                 <span class="variant-name">Kacang Tanah</span>
                 <div class="qty-controls">
-                    <button class="qty-btn minus" aria-label="Kurangi Kacang Tanah"><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="qty-btn minus" aria-label="Kurangi Kacang Tanah"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
                     <span class="qty-value">0</span>
-                    <button class="qty-btn plus" aria-label="Tambah Kacang Tanah"><i class="fa-solid fa-plus"></i></button>
+                    <button type="button" class="qty-btn plus" aria-label="Tambah Kacang Tanah"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                 </div>
             </div>
 
             <div class="variant-item" data-name="Ayam Casio">
-                <div class="variant-thumb">A</div>
+                <div class="variant-thumb" aria-hidden="true">A</div>
                 <span class="variant-name">Ayam Casio</span>
                 <div class="qty-controls">
-                    <button class="qty-btn minus" aria-label="Kurangi Ayam Casio"><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="qty-btn minus" aria-label="Kurangi Ayam Casio"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
                     <span class="qty-value">0</span>
-                    <button class="qty-btn plus" aria-label="Tambah Ayam Casio"><i class="fa-solid fa-plus"></i></button>
+                    <button type="button" class="qty-btn plus" aria-label="Tambah Ayam Casio"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                 </div>
             </div>
 
             <div class="variant-item" data-name="Coklat Lumer">
-                <div class="variant-thumb">C</div>
+                <div class="variant-thumb" aria-hidden="true">C</div>
                 <span class="variant-name">Coklat Lumer</span>
                 <div class="qty-controls">
-                    <button class="qty-btn minus" aria-label="Kurangi Coklat Lumer"><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="qty-btn minus" aria-label="Kurangi Coklat Lumer"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
                     <span class="qty-value">0</span>
-                    <button class="qty-btn plus" aria-label="Tambah Coklat Lumer"><i class="fa-solid fa-plus"></i></button>
+                    <button type="button" class="qty-btn plus" aria-label="Tambah Coklat Lumer"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                 </div>
             </div>
 
             <div class="variant-item" data-name="Keju Susu">
-                <div class="variant-thumb">K</div>
+                <div class="variant-thumb" aria-hidden="true">K</div>
                 <span class="variant-name">Keju Susu</span>
                 <div class="qty-controls">
-                    <button class="qty-btn minus" aria-label="Kurangi Keju Susu"><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="qty-btn minus" aria-label="Kurangi Keju Susu"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
                     <span class="qty-value">0</span>
-                    <button class="qty-btn plus" aria-label="Tambah Keju Susu"><i class="fa-solid fa-plus"></i></button>
+                    <button type="button" class="qty-btn plus" aria-label="Tambah Keju Susu"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="section-card">
-            <h3>Catatan (opsional)</h3>
+        <section class="section-card">
+            <h3><label for="detailNoteInput">Catatan (opsional)</label></h3>
             <div class="note-input-box">
-                <i class="fa-solid fa-pen"></i>
-                <input type="text" placeholder="Tulis catatan untuk menu ini">
+                <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                <input type="text" id="detailNoteInput" maxlength="200" placeholder="Tulis catatan untuk menu ini">
             </div>
-        </div>
+        </section>
 
-        <div class="section-card">
+        <section class="section-card">
             <h3>Rincian harga</h3>
             <div id="price-breakdown">
                 <p class="addon-note">Belum ada bakpao dipilih.</p>
@@ -131,10 +130,10 @@
                 <span>Subtotal</span>
                 <span id="subtotal-text">Rp0</span>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
 
-    <div class="sticky-footer">
+    <footer class="sticky-footer">
         <div class="footer-meta">
             <span id="footer-meta-text">Belum ada bakpao dipilih</span>
         </div>
@@ -143,11 +142,14 @@
                 <span class="total-text">Total produk</span>
                 <span class="total-price">Rp0</span>
             </div>
-            <button class="cart-btn" disabled>Tambah ke keranjang</button>
+            <button type="button" class="cart-btn" disabled>Tambah ke keranjang</button>
         </div>
-    </div>
+    </footer>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="settings-store.js"></script>
 <script src="script-detail-menu.js"></script>
 </body>
 </html>

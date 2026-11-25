@@ -2,62 +2,35 @@ import { supabase } from '../config/supabaseClient.js';
 
 export const OrderService = {
     /**
-     * Membuat pesanan baru secara relasional (tabel 'orders' & 'order_items')
-     * Menggunakan Stored Function: generate_daily_queue_number()
+     * Membuat pesanan baru secara atomik lewat RPC buat_pesanan()
      */
     async createOrder(orderData, cartItems) {
-        // A. Generate nomor antrean harian otomatis via fungsi database
-        const { data: nomorAntrean, error: qError } = await supabase
-            .rpc('generate_daily_queue_number');
-        
-        if (qError) throw new Error("Gagal generate nomor antrean: " + qError.message);
-
-        const antreanFinal = nomorAntrean || 1;
-        const idOrderFormatted = `ANT-${String(antreanFinal).padStart(2, '0')}`;
-
-        // Konversi metode bayar ke format ENUM database ('cash' atau 'qris')
         const tipePembayaranDb = String(orderData.metodeBayar).toLowerCase().includes('tunai') || String(orderData.metodeBayar).toLowerCase().includes('cash') ? 'cash' : 'qris';
 
-        // B. Insert data utama ke tabel 'orders'
-        const { data: insertedOrder, error: orderError } = await supabase
-            .from('orders')
-            .insert([{
-                nomor_antrean: antreanFinal,
-                nama_pembeli: orderData.namaPelanggan,
-                tipe_pembayaran: tipePembayaranDb,
-                status_pembayaran: orderData.statusPembayaran || 'pending',
-                status_pesanan: orderData.statusPesanan || 'disiapkan',
-                total_harga: orderData.totalHarga
-            }])
-            .select()
-            .single();
-
-        if (orderError) throw new Error("Gagal menyimpan transaksi utama: " + orderError.message);
-
-        const idOrder = insertedOrder.id_order;
-
-        // C. Insert rincian item ke tabel 'order_items' (Relasi One-to-Many)
-        const orderItemsPayload = cartItems.map(item => ({
-            id_order: idOrder,
-            id_menu: item.idMenu || null,
-            jumlah: item.qty || 1,
-            nama_item: item.namaItemDb || item.namaMenu,
+        const itemsPayload = (cartItems || []).map(item => ({
+            nama_item: item.namaItemDb || item.namaMenu || 'Menu',
             varian: item.varian || '',
             catatan: item.catatan || '',
+            jumlah: Math.min(99, Math.max(1, Number(item.qty) || 1)),
             harga_satuan: Number(item.hargaSatuan) || 0,
             subtotal: Number(item.subtotal) || 0
         }));
 
-        const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItemsPayload);
+        const { data, error } = await supabase.rpc('buat_pesanan', {
+            p_nama: orderData.namaPelanggan,
+            p_tipe: tipePembayaranDb,
+            p_items: itemsPayload,
+            p_status_bayar: orderData.statusPembayaran || 'pending',
+            p_status_pesanan: orderData.statusPesanan || 'menunggu'
+        });
 
-        if (itemsError) throw new Error("Gagal menyimpan detail item pesanan: " + itemsError.message);
+        if (error) throw new Error("Gagal membuat pesanan: " + error.message);
 
+        const antreanFinal = data.nomor_antrean || 1;
         return {
             success: true,
-            dbIdOrder: idOrder,
-            idOrder: idOrderFormatted,
+            dbIdOrder: data.id_order,
+            idOrder: `ANT-${String(antreanFinal).padStart(2, '0')}`,
             nomorAntrean: antreanFinal
         };
     },

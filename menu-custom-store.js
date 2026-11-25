@@ -28,6 +28,28 @@ function dapatkanSupabaseClient() {
     return null;
 }
 
+function safeImgSrc(src, fallback) {
+    var fb = fallback || DEFAULT_MENU_IMG;
+    if (!src || typeof src !== 'string') return fb;
+    var trimmed = src.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(trimmed)) return trimmed;
+    return fb;
+}
+
+function safeParseArray(val) {
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+        try {
+            var parsed = JSON.parse(val);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+    return [];
+}
+
 // Ambil data menu custom langsung dari Supabase
 async function getCustomMenusFromSupabase() {
     try {
@@ -42,9 +64,9 @@ async function getCustomMenusFromSupabase() {
             if (Array.isArray(data)) {
                 cachedCustomMenus = data.map(item => ({
                     ...item,
-                    img: item.img_url || item.img || DEFAULT_MENU_IMG,
-                    ukuran: typeof item.ukuran === 'string' ? JSON.parse(item.ukuran) : (item.ukuran || []),
-                    addon: typeof item.addon === 'string' ? JSON.parse(item.addon) : (item.addon || [])
+                    img: safeImgSrc(item.img_url || item.img, DEFAULT_MENU_IMG),
+                    ukuran: safeParseArray(item.ukuran),
+                    addon: safeParseArray(item.addon)
                 }));
 
                 localStorage.setItem(CUSTOM_MENU_KEY, JSON.stringify(cachedCustomMenus));
@@ -53,11 +75,11 @@ async function getCustomMenusFromSupabase() {
         }
 
         // Fallback ke localStorage jika koneksi/client belum siap
-        cachedCustomMenus = JSON.parse(localStorage.getItem(CUSTOM_MENU_KEY)) || [];
+        cachedCustomMenus = safeParseArray(localStorage.getItem(CUSTOM_MENU_KEY));
         return cachedCustomMenus;
     } catch (e) {
         console.warn("Gagal memuat menu custom dari Supabase, memuat dari penyimpanan lokal:", e.message || e);
-        cachedCustomMenus = JSON.parse(localStorage.getItem(CUSTOM_MENU_KEY)) || [];
+        cachedCustomMenus = safeParseArray(localStorage.getItem(CUSTOM_MENU_KEY));
         return cachedCustomMenus;
     }
 }

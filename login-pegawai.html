@@ -7,45 +7,41 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style-menu-utama.css">
 </head>
-<body>
+<body class="login-page-body">
 
-<div class="login-wrapper">
-    <div class="login-header">
-        <h2>SABANGDOR</h2>
-        <p>Akses Khusus Kasir & Dapur</p>
-    </div>
+<main class="login-wrapper">
+    <header class="login-header">
+        <span class="login-brand">SABANGDOR</span>
+        <h1>Login Pegawai</h1>
+        <p>Akses khusus kasir dan dapur outlet</p>
+    </header>
 
-    <div class="login-card-box">
+    <section class="login-card-box" aria-label="Formulir masuk pegawai">
         <form id="loginForm">
             <div class="login-field-group">
                 <label for="email">Email Pegawai</label>
-                <input type="email" id="email" class="login-input-text" placeholder="kasir@sabangdor.com" required autocomplete="off">
+                <input type="email" id="email" class="login-input-text" placeholder="nama@sabangdor.com" required autocomplete="username">
             </div>
 
             <div class="login-field-group">
                 <label for="password">Kata Sandi</label>
-                <input type="password" id="password" class="login-input-text" required>
+                <input type="password" id="password" class="login-input-text" required autocomplete="current-password">
             </div>
 
-            <p id="errorMessage" style="color: #ef4444; font-size: 12px; margin-bottom: 12px; display: none;"></p>
+            <p id="errorMessage" class="login-error-msg" role="alert"></p>
 
-            <button type="submit" id="btnSubmit" class="login-btn-submit">Masuk</button>
+            <button type="submit" id="btnSubmit" class="login-btn-submit">Masuk ke Dashboard</button>
         </form>
-    </div>
+    </section>
 
-    <a href="index.html" class="login-btn-back">← Kembali ke Menu Utama</a>
-</div>
+    <a href="index.html" class="login-btn-back">Kembali ke Menu Utama</a>
+</main>
 
-<!-- 1. CDN Supabase SDK (Harus paling atas) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<!-- 2. Config Supabase (Membuat window.supabaseClient) -->
 <script src="config.js"></script>
-
-<!-- 3. Skrip Login -->
 <script src="penjual-page/login.js"></script>
 
 </body>

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SABANGDOR</title>
+    <title>SABANGDOR - Pesan Menu Favoritmu</title>
 
     <!-- Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,48 +16,50 @@
 <body>
 
 <div class="mobile-container app-container">  
-    <!-- Judul Header dengan ID Trigger -->
-    <h2 class="main-header" id="staff-trigger">SABANGDOR</h2>
+    <header class="site-header">
+        <button type="button" class="main-header" id="staff-trigger" aria-label="SABANGDOR">SABANGDOR</button>
+        <h1 class="page-title">Mau makan apa hari ini?</h1>
+        <p class="page-subtitle">Pilih beberapa menu favoritmu, lalu ambil di outlet.</p>
+    </header>
 
-    <h1 class="page-title">Mau makan apa hari ini?</h1>
-    <p class="page-subtitle">Pilih beberapa menu favoritmu, lalu ambil di outlet.</p>
-
-    <!-- NAVBAR TAB KATEGORI (MODERN TAB SWITCHING DENGAN STYLE SISI PENJUAL) -->
-    <nav class="nav-tab-bar">
-        <button class="tab-item active" onclick="pilihKategori(event, 'section-rekomendasi')">
+    <!-- NAVBAR TAB KATEGORI -->
+    <nav class="nav-tab-bar" aria-label="Kategori menu">
+        <button type="button" class="tab-item active" onclick="pilihKategori(event, 'section-rekomendasi')">
             <span class="tab-label">Paling Rekomendasi</span>
         </button>
-        <button class="tab-item" onclick="pilihKategori(event, 'section-mentai')">
+        <button type="button" class="tab-item" onclick="pilihKategori(event, 'section-mentai')">
             <span class="tab-label">Dimsum Mentai</span>
         </button>
-        <button class="tab-item" onclick="pilihKategori(event, 'section-dimsum-aja')">
+        <button type="button" class="tab-item" onclick="pilihKategori(event, 'section-dimsum-aja')">
             <span class="tab-label">Dimsum aja</span>
         </button>
-        <button class="tab-item" onclick="pilihKategori(event, 'section-bakpao')">
+        <button type="button" class="tab-item" onclick="pilihKategori(event, 'section-bakpao')">
             <span class="tab-label">Bakpao</span>
         </button>
     </nav>
 
-    <!-- 1. Paling Populer / Rekomendasi Section (Kosong, siap diisi AI oleh teman Anda) -->
-    <div id="section-rekomendasi" class="menu-section active">
+    <main>
+    <!-- 1. Paling Populer / Rekomendasi Section -->
+    <section id="section-rekomendasi" class="menu-section active">
         <h2 class="section-title">Paling Rekomendasi</h2>
-        <p class="section-desc">Menu paling populer berdasarkan analisis pembelian</p>
+        <p class="section-desc">Menu yang paling sering dipesan pelanggan</p>
 
-        <!-- CONTAINER KOSONG UNTUK INJEKSI DATA OLEH AI TEMAN ANDA -->
         <div class="menu-container" id="rekomendasi-container">
-            <!-- Diisi otomatis oleh fungsi renderRekomendasiAI() -->
+            <div class="empty-state">
+                <p>Memuat rekomendasi menu...</p>
+            </div>
         </div>
-    </div>
+    </section>
 
     <!-- 2. Dimsum Mentai Section -->
-    <div id="section-mentai" class="menu-section">
+    <section id="section-mentai" class="menu-section">
         <h2 class="section-title">Dimsum Mentai</h2>
         <p class="section-desc">Dimsum Mentai • Free Chilli Oil</p>
 
         <div class="menu-container">
             <!-- Card 3 -->
             <div class="card-menu">
-                <img src="https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" alt="Mentai Ori" class="card-img">
+                <img src="https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" alt="Mentai Ori" width="76" height="76" fetchpriority="high" class="card-img">
                 <div class="card-content">
                     <h3 class="card-title">Mentai Ori</h3>
                     <p class="variant">S / M / XL • 3 / 6 / 16 pcs</p>
@@ -68,7 +70,7 @@
 
             <!-- Card 4 -->
             <div class="card-menu">
-                <img src="https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" alt="Mentai Cheese" class="card-img">
+                <img src="https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" alt="Mentai Cheese" width="76" height="76" class="card-img">
                 <div class="card-content">
                     <h3 class="card-title">Mentai Cheese</h3>
                     <p class="variant">S / M / XL • 3 / 6 / 16 pcs</p>
@@ -79,7 +81,7 @@
 
             <!-- Card 5 -->
             <div class="card-menu">
-                <img src="https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" alt="Mentai Tanuki" class="card-img">
+                <img src="https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" alt="Mentai Tanuki" width="76" height="76" class="card-img">
                 <div class="card-content">
                     <h3 class="card-title">Mentai Tanuki</h3>
                     <p class="variant">S / M / XL • 3 / 6 / 16 pcs</p>
@@ -90,7 +92,7 @@
 
             <!-- Card 6 -->
             <div class="card-menu">
-                <img src="https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" alt="Mentai Mix" class="card-img">
+                <img src="https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&w=600&q=80" alt="Mentai Mix" width="76" height="76" class="card-img">
                 <div class="card-content">
                     <h3 class="card-title">Mentai Mix</h3>
                     <p class="variant">M / XL • S tidak tersedia</p>
@@ -99,17 +101,17 @@
                 <a href="dimsum-mix.html" class="btn-pilih">+ Pilih menu</a>
             </div>
         </div>
-    </div>
+    </section>
 
     <!-- 3. Dimsum aja Section -->
-    <div id="section-dimsum-aja" class="menu-section">
+    <section id="section-dimsum-aja" class="menu-section">
         <h2 class="section-title">Dimsum aja</h2>
-        <p class="section-desc"></p>
+        <p class="section-desc">Dimsum kukus hangat dengan pilihan porsi S, M, atau XL</p>
 
         <div class="menu-container">
             <!-- Card 7 -->
             <div class="card-menu">
-                <img src="https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=600&q=80" alt="Dimsum aja" class="card-img">
+                <img src="https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=600&q=80" alt="Dimsum aja" width="76" height="76" class="card-img">
                 <div class="card-content">
                     <h3 class="card-title">Dimsum aja</h3>
                     <p class="variant">S / M / XL • 3 / 6 / 16 pcs</p>
@@ -118,17 +120,17 @@
                 <a href="dimsum-aja.html" class="btn-pilih">+ Pilih menu</a>
             </div>
         </div>
-    </div>
+    </section>
 
     <!-- 4. Bakpao Section -->
-    <div id="section-bakpao" class="menu-section">
+    <section id="section-bakpao" class="menu-section">
         <h2 class="section-title">Bakpao</h2>
         <p class="section-desc">5 varian • bebas campur dalam satu paket</p>
 
         <div class="menu-container">
             <!-- Card 8 -->
             <div class="card-menu">
-                <img src="https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80" alt="Bakpao" class="card-img">
+                <img src="https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80" alt="Bakpao" width="76" height="76" class="card-img">
                 <div class="card-content">
                     <h3 class="card-title">Bakpao</h3>
                     <p class="variant">5 Varian • 1 / 3 / 6 pcs</p>
@@ -137,16 +139,17 @@
                 <a href="detail-menu-bakpao.html" class="btn-pilih">+ Pilih menu</a>
             </div>
         </div>
-    </div>
+    </section>
+    </main>
 
     <!-- Panel Keranjang Popup -->
-    <div id="cart-popup" class="cart-popup hidden">
+    <aside id="cart-popup" class="cart-popup hidden" aria-label="Ringkasan keranjang">
         <div class="cart-header">
             <div class="cart-wrapper">
                 <h3>Pesanan Saya</h3>
                 <span id="cart-badge" class="badge-menu">0 Menu</span>
             </div>
-            <span class="hapus-semua" onclick="kosongkanKeranjang()">Hapus semua</span>
+            <button type="button" class="hapus-semua" onclick="kosongkanKeranjang()">Hapus semua</button>
         </div>
 
         <!-- Tempat menampung daftar item yang dipilih -->
@@ -168,8 +171,8 @@
         </div>
 
         <!-- Tombol Cek Keranjang (Menuju keranjang.html) -->
-        <button class="btn-cek-keranjang" onclick="keHalamanKeranjang()">Cek Keranjang</button>
-    </div>
+        <button type="button" class="btn-cek-keranjang" onclick="keHalamanKeranjang()">Cek Keranjang</button>
+    </aside>
 
 </div>
 
@@ -180,31 +183,6 @@
 <script src="menu-custom-store.js"></script>
 <script src="apriori_recommendation.js"></script>
 <script src="script-menu-utama.js"></script>
-
-<!-- Trigger Rahasia Triple Click untuk Login Pegawai -->
-<script>
-    (function() {
-        const staffTrigger = document.getElementById('staff-trigger');
-        if (!staffTrigger) return;
-
-        let clickCount = 0;
-        let clickTimer = null;
-
-        staffTrigger.addEventListener('click', () => {
-            clickCount++;
-            clearTimeout(clickTimer);
-
-            if (clickCount === 3) {
-                clickCount = 0;
-                window.location.href = 'login-pegawai.html';
-            } else {
-                clickTimer = setTimeout(() => {
-                    clickCount = 0;
-                }, 800);
-            }
-        });
-    })();
-</script>
 
 </body>
 </html>

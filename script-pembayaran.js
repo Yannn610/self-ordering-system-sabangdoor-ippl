@@ -5,9 +5,7 @@
 
 const CART_KEY = "sabangdor_cart";
 const QRIS_STORAGE_KEY = "sabangdor_custom_qris";
-const DEFAULT_QRIS = "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=600&q=80";
 
-// Helper Utility
 const formatRupiah = (n) => "Rp" + Math.round(Number(n) || 0).toLocaleString("id-ID");
 const esc = (s) =>
     String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -18,19 +16,31 @@ const esc = (s) =>
         "'": "&#39;",
     }[c]));
 
-// State Halaman
 let currentStep = "checkout"; // 'checkout' | 'qris' | 'sukses'
 let cartData = [];
 let namaPembeli = "";
 let selectedPayment = "cash"; // 'cash' | 'qris'
 let createdOrderData = null;
 
+function safeImgSrc(src) {
+    if (!src || typeof src !== "string") return "";
+    const trimmed = src.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(trimmed)) return trimmed;
+    return "";
+}
+
 function loadCart() {
     try {
         const data = JSON.parse(localStorage.getItem(CART_KEY));
         if (!Array.isArray(data)) return [];
-        // Tolak item jika qty <= 0 atau harga <= 0
-        return data.filter((i) => i && Number(i.qty) > 0 && Number(i.harga) > 0);
+        return data
+            .filter((i) => i && Number.isFinite(Number(i.qty)) && Number(i.qty) >= 1 && Number(i.harga) > 0)
+            .map((i) => ({
+                ...i,
+                qty: Math.min(99, Math.max(1, Math.round(Number(i.qty)))),
+                harga: Math.round(Number(i.harga))
+            }));
     } catch (e) {
         return [];
     }
@@ -91,21 +101,22 @@ function renderStep() {
         backBtn.href = "keranjang.html";
 
         mainContent.innerHTML = `
-            <div class="card-pembayaran" style="background:#fff; border-radius:16px; padding:16px; border:1px solid #E2E8F0; margin-bottom:14px;">
-                <h3 style="margin:0 0 10px 0; font-size:14px; font-weight:700;">Data Pemesan</h3>
-                <label style="font-size:12px; color:#64748B; display:block; margin-bottom:6px;">Nama Lengkap / Panggilan:</label>
-                <input type="text" id="inputNamaPembeli" class="input-nama" maxlength="50" placeholder="Contoh: Budi Santoso" value="${esc(namaPembeli)}" 
-                    style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; border:1px solid #CBD5E1; font-family:inherit; font-size:14px;">
+            <div class="card-pembayaran">
+                <h2 class="pay-card-title">Data Pemesan</h2>
+                <label for="inputNamaPembeli" class="field-head">Nama Lengkap / Panggilan</label>
+                <input type="text" id="inputNamaPembeli" class="input-nama" maxlength="50" autocomplete="name" placeholder="Masukkan nama pemesan" value="${esc(namaPembeli)}">
+                <p id="checkoutErrorMsg" class="inline-error" role="alert"></p>
             </div>
 
-            <div class="card-pembayaran" style="background:#fff; border-radius:16px; padding:16px; border:1px solid #E2E8F0; margin-bottom:14px;">
-                <h3 style="margin:0 0 10px 0; font-size:14px; font-weight:700;">Rincian Pesanan</h3>
-                <ul style="list-style:none; padding:0; margin:0;">
+            <div class="card-pembayaran">
+                <h2 class="pay-card-title">Rincian Pesanan</h2>
+                <ul class="order-summary-list">
                     ${cartData.map(item => `
-                        <li style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px dashed #E2E8F0; font-size:13px;">
+                        <li class="order-item-row">
                             <div>
                                 <b>${item.qty}x</b> ${esc(item.nama)}
-                                <div style="font-size:11px; color:#64748B;">${esc(item.varian || "")}</div>
+                                <div class="order-item-variant">${esc(item.varian || "")}</div>
+                                ${item.catatan ? `<div class="order-item-note">Catatan: "${esc(item.catatan)}"</div>` : ""}
                             </div>
                             <b>${formatRupiah(item.harga)}</b>
                         </li>
@@ -113,56 +124,66 @@ function renderStep() {
                 </ul>
             </div>
 
-            <div class="card-pembayaran" style="background:#fff; border-radius:16px; padding:16px; border:1px solid #E2E8F0;">
-                <h3 style="margin:0 0 12px 0; font-size:14px; font-weight:700;">Metode Pembayaran</h3>
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <label style="display:flex; align-items:center; gap:10px; padding:10px; border-radius:10px; border:1px solid ${selectedPayment === 'cash' ? '#E11D48' : '#CBD5E1'}; background:${selectedPayment === 'cash' ? '#FFF1F2' : '#FFF'}; cursor:pointer;">
+            <div class="card-pembayaran">
+                <h2 class="pay-card-title">Metode Pembayaran</h2>
+                <div class="payment-options">
+                    <label class="pay-option-label ${selectedPayment === 'cash' ? 'selected' : ''}">
+                        <span class="pay-option-text">
+                            <b>Bayar Tunai</b>
+                            <small>Bayar langsung di kasir saat ambil pesanan</small>
+                        </span>
                         <input type="radio" name="paymentMethod" value="cash" ${selectedPayment === 'cash' ? 'checked' : ''} onchange="pilihMetode('cash')">
-                        <span style="font-size:13px; font-weight:600;">💵 Bayar Tunai (Di Kasir Outlet)</span>
                     </label>
-                    <label style="display:flex; align-items:center; gap:10px; padding:10px; border-radius:10px; border:1px solid ${selectedPayment === 'qris' ? '#E11D48' : '#CBD5E1'}; background:${selectedPayment === 'qris' ? '#FFF1F2' : '#FFF'}; cursor:pointer;">
+                    <label class="pay-option-label ${selectedPayment === 'qris' ? 'selected' : ''}">
+                        <span class="pay-option-text">
+                            <b>QRIS (E-Wallet / M-Banking)</b>
+                            <small>Scan kode QRIS outlet setelah konfirmasi</small>
+                        </span>
                         <input type="radio" name="paymentMethod" value="qris" ${selectedPayment === 'qris' ? 'checked' : ''} onchange="pilihMetode('qris')">
-                        <span style="font-size:13px; font-weight:600;">📱 QRIS (E-Wallet / M-Banking)</span>
                     </label>
                 </div>
             </div>
         `;
 
         footerArea.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <span style="font-size:13px; color:#64748B;">Total Tagihan</span>
-                <span style="font-size:18px; font-weight:800; color:#E11D48;">${formatRupiah(subtotal)}</span>
+            <div class="footer-total">
+                <span>Total Tagihan</span>
+                <b>${formatRupiah(subtotal)}</b>
             </div>
-            <button type="button" class="btn-checkout" id="btnSubmitOrder" onclick="handleLanjutPembayaran()" 
-                style="width:100%; padding:14px; border-radius:12px; background:#E11D48; color:#fff; border:none; font-weight:700; font-size:15px; cursor:pointer;">
+            <button type="button" class="btn btn--primary" id="btnSubmitOrder" onclick="handleLanjutPembayaran()">
                 ${selectedPayment === 'qris' ? 'Lanjut ke Pembayaran QRIS' : 'Konfirmasi & Kirim Pesanan'}
             </button>
         `;
     } else if (currentStep === "qris") {
         pageTitle.textContent = "Pembayaran QRIS";
-        backBtn.removeAttribute("href");
-        backBtn.onclick = () => { currentStep = "checkout"; renderStep(); };
+        backBtn.href = "#checkout";
+        backBtn.onclick = (e) => {
+            e.preventDefault();
+            currentStep = "checkout";
+            renderStep();
+        };
 
-        const qrisImg = localStorage.getItem(QRIS_STORAGE_KEY) || DEFAULT_QRIS;
+        const qrisImg = safeImgSrc(localStorage.getItem(QRIS_STORAGE_KEY));
+        const qrisVisualHtml = qrisImg
+            ? `<div class="qris-frame"><img src="${esc(qrisImg)}" alt="QRIS Outlet Sabangdor" width="220" height="220" class="qris-img-display"></div>`
+            : `<div class="qris-empty-box" role="status">Gambar QRIS outlet belum diunggah oleh kasir. Silakan scan QRIS fisik di meja kasir saat mengambil pesanan, atau kembali untuk memilih Bayar Tunai.</div>`;
 
         mainContent.innerHTML = `
-            <div style="text-align:center; background:#fff; border-radius:16px; padding:20px; border:1px solid #E2E8F0;">
-                <h3 style="margin:0 0 6px 0; font-size:16px; font-weight:800;">Scan QRIS Sabangdor</h3>
-                <p style="font-size:12px; color:#64748B; margin:0 0 16px 0;">Buka aplikasi e-wallet / mobile banking Anda dan lakukan pembayaran sesuai nominal.</p>
-                <div style="display:inline-block; padding:10px; border:1px solid #CBD5E1; border-radius:12px; background:#fff;">
-                    <img src="${esc(qrisImg)}" alt="QRIS Outlet" style="width:200px; height:200px; object-fit:contain; display:block;">
+            <div class="card-pembayaran qris-card">
+                <h2 class="qris-title">Scan QRIS Sabangdor</h2>
+                <p class="qris-desc">Buka aplikasi e-wallet atau mobile banking Anda lalu bayar sesuai total tagihan.</p>
+                ${qrisVisualHtml}
+                <div class="qris-amount-box">
+                    <span>Total yang harus dibayar</span>
+                    <strong>${formatRupiah(subtotal)}</strong>
                 </div>
-                <div style="margin-top:16px; padding:10px; background:#FFF1F2; border-radius:10px; border:1px solid #FECDD3;">
-                    <span style="font-size:12px; color:#64748B;">Total yang harus dibayar:</span>
-                    <div style="font-size:18px; font-weight:800; color:#E11D48;">${formatRupiah(subtotal)}</div>
-                </div>
+                <p id="checkoutErrorMsg" class="inline-error" role="alert"></p>
             </div>
         `;
 
         footerArea.innerHTML = `
-            <button type="button" id="btnKonfirmasiQris" onclick="eksekusiSimpanPesanan()" 
-                style="width:100%; padding:14px; border-radius:12px; background:#10B981; color:#fff; border:none; font-weight:700; font-size:15px; cursor:pointer;">
-                ✓ Saya Sudah Bayar
+            <button type="button" id="btnKonfirmasiQris" class="btn btn--success" onclick="eksekusiSimpanPesanan()">
+                Saya Sudah Bayar
             </button>
         `;
     } else if (currentStep === "sukses") {
@@ -173,37 +194,54 @@ function renderStep() {
         const nomorAntreanFormatted = `ANT-${String(createdOrderData?.nomor_antrean || 1).padStart(2, '0')}`;
 
         mainContent.innerHTML = `
-            <div style="text-align:center; padding:24px 16px;">
-                <div style="width:64px; height:64px; background:#DCFCE7; color:#16A34A; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:32px;">✓</div>
-                <h2 style="font-size:18px; font-weight:800; margin:0 0 6px 0;">Pesanan Berhasil Dibuat!</h2>
-                <p style="font-size:12px; color:#64748B; margin:0 0 20px 0;">Pesanan atas nama <b>${esc(createdOrderData?.nama_pembeli)}</b> telah diteruskan ke dapur SABANGDOR.</p>
+            <div class="success-wrap">
+                <div class="success-icon" aria-hidden="true">✓</div>
+                <h2 class="success-title">Pesanan Berhasil Dibuat</h2>
+                <p class="success-desc">Pesanan atas nama <b>${esc(createdOrderData?.nama_pembeli)}</b> telah diteruskan ke dapur SABANGDOR.</p>
 
-                <div style="background:#fff; border-radius:16px; border:1px solid #E2E8F0; padding:16px; text-align:left;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
-                        <span style="color:#64748B;">Nomor Antrean</span>
-                        <strong style="color:#E11D48; font-size:15px;">#${nomorAntreanFormatted}</strong>
+                <div class="card-pembayaran success-receipt">
+                    <div class="receipt-row">
+                        <span>Nomor Antrean</span>
+                        <strong class="receipt-queue">#${nomorAntreanFormatted}</strong>
                     </div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
-                        <span style="color:#64748B;">Metode Bayar</span>
-                        <strong>${(createdOrderData?.tipe_pembayaran || '').toUpperCase()}</strong>
+                    <div class="receipt-row">
+                        <span>Metode Bayar</span>
+                        <strong>${esc((createdOrderData?.tipe_pembayaran || '').toUpperCase())}</strong>
                     </div>
-                    <div style="display:flex; justify-content:space-between; font-size:13px;">
-                        <span style="color:#64748B;">Status Bayar</span>
-                        <span style="color:#D97706; font-weight:700;">Menunggu Verifikasi Kasir</span>
+                    <div class="receipt-row">
+                        <span>Total Tagihan</span>
+                        <strong>${formatRupiah(createdOrderData?.total_harga || subtotal)}</strong>
+                    </div>
+                    <div class="receipt-row">
+                        <span>Status Bayar</span>
+                        <span class="badge badge--amber">Menunggu Verifikasi Kasir</span>
                     </div>
                 </div>
             </div>
         `;
 
         footerArea.innerHTML = `
-            <a href="index.html" style="display:block; text-align:center; width:100%; box-sizing:border-box; padding:14px; border-radius:12px; background:#E11D48; color:#fff; text-decoration:none; font-weight:700; font-size:15px;">
+            <a href="index.html" class="btn btn--primary">
                 Pesan Menu Lain
             </a>
         `;
     }
 }
 
+function tampilkanErrorCheckout(pesan) {
+    const errEl = document.getElementById("checkoutErrorMsg");
+    if (errEl) {
+        errEl.textContent = pesan;
+        errEl.classList.add("show");
+    } else {
+        alert(pesan);
+    }
+}
+
 window.pilihMetode = function(tipe) {
+    // Simpan input nama sebelum render ulang agar ketikan pembeli tidak hilang
+    const namaInp = document.getElementById("inputNamaPembeli");
+    if (namaInp) namaPembeli = namaInp.value;
     selectedPayment = tipe;
     renderStep();
 };
@@ -213,7 +251,7 @@ function handleLanjutPembayaran() {
     namaPembeli = (namaInp ? namaInp.value : "").trim();
 
     if (!namaPembeli) {
-        alert("Silakan masukkan nama pemesan terlebih dahulu!");
+        tampilkanErrorCheckout("Silakan masukkan nama pemesan terlebih dahulu.");
         if (namaInp) namaInp.focus();
         return;
     }
@@ -255,15 +293,15 @@ async function eksekusiSimpanPesanan() {
 
     try {
         const itemsPayload = freshCart.map(item => {
-            const qty = Number(item.qty) || 0;
-            const subtotal = Number(item.harga) || 0;
+            const qty = Math.min(99, Math.max(1, Math.round(Number(item.qty) || 0)));
+            const subtotal = Math.round(Number(item.harga) || 0);
             if (qty <= 0 || subtotal <= 0) {
                 throw new Error("Data keranjang tidak valid (harga/jumlah harus lebih dari 0).");
             }
             return {
-                nama_item: item.nama || "Menu",
-                varian: item.varian || "",
-                catatan: item.catatan || "",
+                nama_item: String(item.nama || "Menu").trim().slice(0, 100),
+                varian: String(item.varian || "").trim().slice(0, 200),
+                catatan: String(item.catatan || "").trim().slice(0, 200),
                 jumlah: qty,
                 harga_satuan: Math.round(subtotal / qty),
                 subtotal: subtotal
@@ -291,7 +329,7 @@ async function eksekusiSimpanPesanan() {
         if (/buat_pesanan/i.test(pesan) && /(function|schema cache|not find)/i.test(pesan)) {
             pesan = "Database belum diperbarui. Jalankan supabase/migration_perbaikan.sql di Supabase SQL Editor.";
         }
-        alert("Gagal memproses pesanan: " + pesan);
+        tampilkanErrorCheckout("Gagal memproses pesanan: " + pesan);
         if (btnSubmit) {
             btnSubmit.disabled = false;
             btnSubmit.innerText = "Coba Lagi";
