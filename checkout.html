@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Checkout & Pembayaran - Sabangdor</title>
+    <meta name="theme-color" content="#E11D48">
+    <link rel="manifest" href="manifest.webmanifest">
+    <title>Checkout &amp; Pembayaran - Sabangdor</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -11,46 +13,36 @@
 </head>
 <body data-step="checkout">
     <div class="app">
-        <!-- Top Header -->
         <header class="topbar">
             <a class="back" href="keranjang.html" id="backBtn" aria-label="Kembali">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M10 3 5 8l5 5" />
                 </svg>
             </a>
-            <h1 id="pageTitle">Checkout</h1>
-            <div class="topbar-right"></div>
+            <h1 id="pageTitle" data-i18n="checkout_title">Checkout</h1>
+            <div class="topbar-right" id="langHost"></div>
         </header>
 
-        <!-- Outlet Banner -->
         <div class="outlet-banner">
             <div class="outlet-left">
                 <strong>SABANGDOR</strong>
-                <span>Ambil di outlet</span>
+                <span data-i18n="pickup_at_outlet">Ambil di outlet</span>
             </div>
             <small id="orderInfoMeta">-</small>
         </div>
 
-        <!-- Main Content -->
-        <main class="content" id="mainContent">
-            <!-- Dinamis -->
-        </main>
+        <main class="content" id="mainContent"></main>
 
-        <!-- Sticky Footer -->
-        <footer class="footer" id="footerArea">
-            <!-- Dinamis -->
-        </footer>
+        <footer class="footer" id="footerArea"></footer>
     </div>
 
-    <!-- 1. Supabase SDK CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <!-- 2. File Config Supabase (Harus dimuat sebelum script-pembayaran.js) -->
     <script src="config.js"></script>
-
+    <script src="i18n.js"></script>
+    <script src="error-messages.js"></script>
+    <script src="validation.js"></script>
+    <script src="telemetry.js"></script>
     <script src="settings-store.js"></script>
-
-    <!-- 3. Script Pembayaran Pembeli (Cukup 1 kali di bagian paling bawah) -->
     <script src="script-pembayaran.js"></script>
 </body>
 </html>

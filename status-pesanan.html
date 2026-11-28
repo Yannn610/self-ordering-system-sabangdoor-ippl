@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#E11D48">
+    <link rel="manifest" href="manifest.webmanifest">
+    <title>Lacak Status Pesanan - SABANGDOR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style-pembayaran-menu.css">
+</head>
+<body>
+    <div class="app">
+        <header class="topbar">
+            <a class="back" href="index.html" aria-label="Kembali ke menu utama">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M10 3 5 8l5 5" />
+                </svg>
+            </a>
+            <h1 data-i18n="track_title">Status Pesanan</h1>
+            <div class="topbar-right" id="langHost"></div>
+        </header>
+
+        <div class="outlet-banner">
+            <div class="outlet-left">
+                <strong>SABANGDOR</strong>
+                <span data-i18n="pickup_at_outlet">Ambil di outlet</span>
+            </div>
+            <small id="trackLivePill">Sinkronisasi...</small>
+        </div>
+
+        <main class="content" id="trackContent">
+            <div class="card-pembayaran" style="text-align:center;">
+                <p style="color:var(--text-muted); font-size:0.9375rem;">Memuat status pesanan Anda...</p>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <a href="index.html" class="btn btn--primary" data-i18n="btn_order_more">Pesan Menu Lain</a>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="i18n.js"></script>
+    <script src="error-messages.js"></script>
+    <script src="validation.js"></script>
+    <script src="telemetry.js"></script>
+    <script src="script-status-pesanan.js"></script>
+</body>
+</html>

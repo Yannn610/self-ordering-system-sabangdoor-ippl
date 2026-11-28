@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#E11D48">
+    <link rel="manifest" href="manifest.webmanifest">
+    <title>Riwayat Pesanan - SABANGDOR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style-pembayaran-menu.css">
+</head>
+<body>
+    <div class="app">
+        <header class="topbar">
+            <a class="back" href="index.html" aria-label="Kembali ke menu utama">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M10 3 5 8l5 5" />
+                </svg>
+            </a>
+            <h1 data-i18n="history_title">Riwayat Pesanan</h1>
+            <div class="topbar-right" id="langHost"></div>
+        </header>
+
+        <div class="outlet-banner">
+            <div class="outlet-left">
+                <strong>SABANGDOR</strong>
+                <span>Pesan ulang lebih cepat</span>
+            </div>
+            <small id="buyerAuthStatus">Mode Tamu</small>
+        </div>
+
+        <main class="content">
+            <!-- PB-071: Login Opsional Email OTP -->
+            <section class="card-pembayaran" id="buyerAuthCard">
+                <h2 class="pay-card-title">Sinkronkan Riwayat (Opsional)</h2>
+                <p style="font-size:0.875rem; color:var(--text-muted); margin-bottom:10px;">
+                    Anda tetap dapat memesan tanpa akun. Masuk dengan Email OTP jika ingin menyimpan riwayat lintas perangkat.
+                </p>
+                <div id="buyerAuthFormWrap">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <input type="email" id="buyerEmailInput" class="input-nama" style="flex:1; min-width:180px;" placeholder="email@contoh.com" autocomplete="email">
+                        <button type="button" id="btnSendOtp" class="btn btn--primary" style="width:auto; padding:0 18px;">Kirim Kode OTP</button>
+                    </div>
+                    <div id="otpVerifyBox" style="display:none; margin-top:10px; gap:8px; flex-wrap:wrap;">
+                        <input type="text" id="buyerOtpInput" class="input-nama" inputmode="numeric" maxlength="6" style="flex:1; min-width:140px;" placeholder="Kode 6 digit dari email">
+                        <button type="button" id="btnVerifyOtp" class="btn btn--success" style="width:auto; padding:0 18px;">Verifikasi</button>
+                    </div>
+                </div>
+                <div id="buyerSignedInWrap" style="display:none; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <span id="buyerEmailDisplay" style="font-weight:700; font-size:0.875rem;"></span>
+                    <button type="button" id="btnBuyerSignOut" class="btn btn--secondary" style="width:auto; padding:0 16px;">Keluar</button>
+                </div>
+                <p id="buyerAuthMsg" class="inline-error" role="status"></p>
+            </section>
+
+            <section class="card-pembayaran">
+                <h2 class="pay-card-title">Daftar Pesanan Terakhir</h2>
+                <div id="buyerHistoryList">
+                    <p style="color:var(--text-muted); font-size:0.875rem;">Memuat riwayat pesanan...</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <a href="index.html" class="btn btn--primary">Kembali ke Daftar Menu</a>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="i18n.js"></script>
+    <script src="error-messages.js"></script>
+    <script src="telemetry.js"></script>
+    <script src="script-riwayat-pembeli.js"></script>
+</body>
+</html>

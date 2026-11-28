@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#E11D48">
+    <link rel="manifest" href="manifest.webmanifest">
     <title>Detail Menu - SABANGDOR</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,16 +18,16 @@
         <button type="button" class="back-btn" aria-label="Kembali ke menu utama">
             <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
         </button>
-        <h1>Detail menu</h1>
-        <div class="header-space"></div>
+        <h1 data-i18n="detail_title">Detail menu</h1>
+        <div class="header-space" id="langHost"></div>
     </header>
 
     <div class="outlet-info">
         <div class="outlet-row">
             <span class="outlet-title">SABANGDOR</span>
-            <span class="outlet-action">Pilih porsi</span>
+            <span class="outlet-action" data-i18n="outlet_pick_portion">Pilih porsi</span>
         </div>
-        <p class="outlet-desc">Pesan dan ambil di outlet</p>
+        <p class="outlet-desc" data-i18n="outlet_desc">Pesan dan ambil di outlet</p>
     </div>
 
     <main class="content-body" id="content-body">
@@ -37,20 +39,23 @@
 
     <footer class="sticky-footer">
         <div class="footer-meta">
-            <span>1 porsi</span>
+            <span id="footer-meta-text">1 porsi</span>
         </div>
         <div class="footer-action-row">
             <div class="total-label-group">
-                <span class="total-text">Total produk</span>
+                <span class="total-text" data-i18n="total_product">Total produk</span>
                 <span class="total-price">Rp0</span>
             </div>
-            <button type="button" class="cart-btn">Tambah ke keranjang</button>
+            <button type="button" class="cart-btn" data-i18n="btn_add_to_cart">Tambah ke keranjang</button>
         </div>
     </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="i18n.js"></script>
+<script src="error-messages.js"></script>
+<script src="telemetry.js"></script>
 <script src="settings-store.js"></script>
 <script src="menu-custom-store.js"></script>
 <script src="script-detail-menu.js"></script>

@@ -1,0 +1,221 @@
+/* File: style-layar-antrean.css (PB-051: Layar Antrean Publik untuk TV/Tablet Outlet) */
+:root {
+    --primary-red: #E11D48;
+    --primary-hover: #BE123C;
+    --dark-maroon: #2B1D19;
+    --bg-app: #F8F9FA;
+    --card-bg: #FFFFFF;
+    --text-main: #1E293B;
+    --text-muted: #475569;
+    --border-line: #E2E8F0;
+    --green-solid: #047857;
+    --green-soft: #DCFCE7;
+    --amber-soft: #FEF3C7;
+    --amber-text: #92400E;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+body {
+    background: var(--bg-app);
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.queue-header {
+    background: var(--dark-maroon);
+    color: #FFFFFF;
+    padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.queue-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.queue-brand span {
+    font-size: 0.875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #FDA4AF;
+}
+
+.queue-brand h1 {
+    font-size: clamp(1.375rem, 2.5vw, 2rem);
+    font-weight: 800;
+}
+
+.queue-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.queue-clock {
+    font-size: 1.25rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    background: rgba(255, 255, 255, 0.12);
+    padding: 8px 14px;
+    border-radius: 10px;
+}
+
+.live-pill {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #DCFCE7;
+    color: #15803D;
+}
+
+.live-pill.polling {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.queue-btn {
+    min-height: 44px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.12);
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.queue-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.queue-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 24px 28px;
+    max-width: 1440px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+@media (min-width: 820px) {
+    .queue-grid {
+        grid-template-columns: 1fr 1.25fr;
+    }
+}
+
+.queue-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border-line);
+    border-radius: 20px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.queue-panel.ready-panel {
+    border: 2px solid var(--green-solid);
+}
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--border-line);
+}
+
+.panel-head h2 {
+    font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+    font-weight: 800;
+}
+
+.ready-panel .panel-head h2 {
+    color: var(--green-solid);
+}
+
+.panel-count {
+    font-size: 1rem;
+    font-weight: 800;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: #F1F5F9;
+    color: var(--text-main);
+}
+
+.ready-panel .panel-count {
+    background: var(--green-soft);
+    color: var(--green-solid);
+}
+
+.numbers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+}
+
+.queue-tile {
+    background: var(--amber-soft);
+    color: var(--amber-text);
+    border: 1px solid #FCD34D;
+    border-radius: 16px;
+    padding: 22px 14px;
+    text-align: center;
+    font-size: clamp(1.75rem, 3.2vw, 2.75rem);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+}
+
+.queue-tile.ready {
+    background: var(--green-solid);
+    color: #FFFFFF;
+    border-color: var(--green-solid);
+    box-shadow: 0 10px 24px rgba(4, 120, 87, 0.22);
+}
+
+.queue-tile.ready.newest {
+    background: var(--primary-red);
+    border-color: var(--primary-red);
+    box-shadow: 0 12px 28px rgba(225, 29, 72, 0.3);
+}
+
+.queue-empty {
+    grid-column: 1 / -1;
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.queue-footer {
+    text-align: center;
+    padding: 12px 20px;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-line);
+    background: var(--card-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+}

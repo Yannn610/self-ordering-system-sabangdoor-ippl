@@ -545,3 +545,36 @@ a[href], button, label[for], label.pay-option-label, input[type="radio"] {
         animation-duration: 0.01ms !important;
     }
 }
+
+
+/* Language Switcher (PB-072) */
+.topbar-right {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.lang-switcher {
+    display: inline-flex;
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-line);
+    border-radius: 999px;
+    padding: 2px;
+}
+
+.lang-toggle-btn {
+    min-width: 32px;
+    min-height: 30px;
+    padding: 2px 7px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.lang-toggle-btn.active {
+    background: var(--dark-maroon);
+    color: #FFFFFF;
+}

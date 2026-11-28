@@ -4,29 +4,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SABANGDOR - Dashboard Kasir</title>
+    <meta name="theme-color" content="#E11D48">
+    <link rel="manifest" href="../manifest.webmanifest">
+    <title>SABANGDOR - Dashboard Operasional</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style-penjual.css">
-
 </head>
 
 <body>
     <div class="app">
-        <!-- Header Kasir -->
+        <!-- Header Kasir / Dapur / Pemilik -->
         <header class="app-header">
             <div class="header-info">
-                <span class="brand-tag">SABANGDOR POS</span>
-                <h1 id="page-title">Manajemen Stok & QRIS</h1>
-                <p id="page-subtitle">Atur Ketersediaan Menu & Gambar QRIS Toko</p>
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    <span class="brand-tag">SABANGDOR POS</span>
+                    <span id="badgeStaffRole" class="role-pill">PEGAWAI</span>
+                    <span id="badgeRealtimeState" class="role-pill pill-amber">Polling</span>
+                    <span id="badgeConnectionState" class="role-pill pill-green">Online</span>
+                </div>
+                <h1 id="page-title">Manajemen Stok &amp; QRIS</h1>
+                <p id="page-subtitle">Atur Ketersediaan Menu &amp; Gambar QRIS Toko</p>
             </div>
             <div class="header-actions">
-                <button type="button" id="btn-toggle-toko" class="btn-toggle-stok ready" onclick="toggleStatusToko()">
+                <button type="button" id="btnSyncOffline" class="btn-outline-merchant" style="display:none; min-height:40px; padding:6px 12px; font-size:0.75rem;" onclick="sinkronkanOfflineSekarang()">
+                    Sinkron (<span id="offlineQueueCount">0</span>)
+                </button>
+                <button type="button" id="btnSoundToggle" class="btn-outline-merchant" style="min-height:40px; padding:6px 12px; font-size:0.75rem;" onclick="toggleNotifSuara()" aria-pressed="true">
+                    Suara: Aktif
+                </button>
+                <button type="button" id="btn-toggle-toko" class="btn-toggle-stok ready" data-role-hide="dapur" onclick="toggleStatusToko()">
                     <span class="status-dot" aria-hidden="true"></span>TOKO BUKA
                 </button>
-                <button type="button" class="btn-primary-merchant btn-manual-order" onclick="bukaModalKasirOrder()">
+                <button type="button" class="btn-primary-merchant btn-manual-order" data-role-hide="dapur" onclick="bukaModalKasirOrder()">
                     + Pesanan Manual / Ojek
                 </button>
                 <button type="button" class="btn-outline-merchant btn-logout" onclick="handleLogout()">
@@ -35,9 +46,12 @@
             </div>
         </header>
 
-        <!-- Main Body (Scroll Area) -->
+        <!-- Main Body -->
         <main class="app-body">
-            <!-- SECTION 1: STOK & QRIS -->
+            <!-- Banner Peringatan Stok Menipis (PB-063) -->
+            <div id="low-stock-global-banner" class="low-stock-alert" style="display:none;" role="status"></div>
+
+            <!-- SECTION 1: STOK, QRIS & PRINTER -->
             <section id="sec-dashboard" class="page-section active">
                 <div id="grid-stok-menu"></div>
             </section>
@@ -47,54 +61,76 @@
                 <div id="container-pembayaran"></div>
             </section>
 
-            <!-- SECTION 3: DISPLAY KITCHEN -->
+            <!-- SECTION 3: DISPLAY KITCHEN (3 TAHAP PB-041) -->
             <section id="sec-pantau" class="page-section">
                 <div class="kitchen-tabs">
-                    <button type="button" class="k-tab active" onclick="switchKitchenTab('proses-masak', event)">
+                    <button type="button" class="k-tab active" data-ktab="proses-masak" onclick="switchKitchenTab('proses-masak', event)">
                         Proses Masak (<span id="count-terkirim">0</span>)
                     </button>
-                    <button type="button" class="k-tab" onclick="switchKitchenTab('selesai', event)">
+                    <button type="button" class="k-tab" data-ktab="siap-diambil" onclick="switchKitchenTab('siap-diambil', event)">
+                        Siap Diambil (<span id="count-siap">0</span>)
+                    </button>
+                    <button type="button" class="k-tab" data-ktab="selesai" onclick="switchKitchenTab('selesai', event)">
                         Selesai (<span id="count-selesai">0</span>)
                     </button>
                 </div>
                 <div id="kanban-content-mobile"></div>
             </section>
 
-            <!-- SECTION 5: MENU TAMBAHAN (kasir tambah menu sendiri) -->
+            <!-- SECTION 4: MENU & KATEGORI (PB-047 & PB-048) -->
             <section id="sec-menu" class="page-section">
                 <div id="container-menu-tambahan"></div>
             </section>
 
-            <!-- SECTION 4: RIWAYAT TRANSAKSI & OMZET -->
+            <!-- SECTION 5: RIWAYAT, LAPORAN & SHIFT (PB-046, 055, 057, 058, 062) -->
             <section id="sec-riwayat" class="page-section">
-                <div class="card filter-card">
-                    <label for="filterTanggal">Filter Berdasarkan Tanggal</label>
-                    <div class="filter-controls">
-                        <input type="date" id="filterTanggal" onchange="renderCurrentSection(true)">
-                        <button type="button" class="btn-reset" onclick="resetFilterTanggal()">Semua</button>
-                    </div>
+                <div class="subtab-bar" role="tablist" aria-label="Submenu riwayat dan laporan">
+                    <button type="button" class="subtab-btn active" data-rsub="transaksi" onclick="switchRiwayatSubtab('transaksi', this)">Transaksi &amp; Retur</button>
+                    <button type="button" class="subtab-btn" data-rsub="laporan" data-role-only="pemilik" onclick="switchRiwayatSubtab('laporan', this)">Laporan &amp; Grafik</button>
+                    <button type="button" class="subtab-btn" data-rsub="shift" onclick="switchRiwayatSubtab('shift', this)">Shift &amp; Kas</button>
                 </div>
 
-                <div id="summary-omzet-card"></div>
-                <div id="history-cards-container"></div>
+                <div id="riwayat-sub-transaksi">
+                    <div class="card filter-card">
+                        <label for="filterTanggal">Filter Berdasarkan Tanggal</label>
+                        <div class="filter-controls">
+                            <input type="date" id="filterTanggal" onchange="renderCurrentSection(true)">
+                            <button type="button" class="btn-reset" onclick="resetFilterTanggal()">Semua</button>
+                        </div>
+                    </div>
+                    <div id="summary-omzet-card"></div>
+                    <div id="history-cards-container"></div>
+                </div>
+
+                <div id="riwayat-sub-laporan" style="display:none;"></div>
+                <div id="riwayat-sub-shift" style="display:none;"></div>
+            </section>
+
+            <!-- SECTION 6: KELOLA PEMILIK (PB-052, 054, 059, 060, 064, 065, 066, 067, 068, 070, 074, 075) -->
+            <section id="sec-kelola" class="page-section">
+                <div class="subtab-bar" role="tablist" aria-label="Submenu pengelolaan outlet">
+                    <button type="button" class="subtab-btn active" data-ksub="jadwal" onclick="switchKelolaSubtab('jadwal', this)">Jadwal &amp; Pre-order</button>
+                    <button type="button" class="subtab-btn" data-ksub="voucher" onclick="switchKelolaSubtab('voucher', this)">Voucher &amp; Poin</button>
+                    <button type="button" class="subtab-btn" data-ksub="apriori" onclick="switchKelolaSubtab('apriori', this)">Apriori &amp; Bundling</button>
+                    <button type="button" class="subtab-btn" data-ksub="ulasan" onclick="switchKelolaSubtab('ulasan', this)">Ulasan</button>
+                    <button type="button" class="subtab-btn" data-ksub="pegawai" onclick="switchKelolaSubtab('pegawai', this)">Pegawai &amp; 2FA</button>
+                    <button type="button" class="subtab-btn" data-ksub="audit" onclick="switchKelolaSubtab('audit', this)">Audit &amp; Error</button>
+                </div>
+                <div id="kelola-panel-container"></div>
             </section>
         </main>
 
-        <!-- MODAL INPUT PESANAN KASIR (DENGAN PILIHAN UKURAN & TAMBAHAN) -->
-        <div id="modalKasirOrder" class="modal-backdrop" role="dialog" aria-modal="true"
-            aria-labelledby="modalKasirTitle" style="display:none;">
+        <!-- MODAL INPUT PESANAN KASIR -->
+        <div id="modalKasirOrder" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalKasirTitle" style="display:none;">
             <div class="modal-box">
                 <div class="modal-header">
                     <h3 id="modalKasirTitle">Input Pesanan Manual / Kasir</h3>
-                    <button type="button" class="btn-close-modal" aria-label="Tutup modal pesanan"
-                        onclick="tutupModalKasirOrder()">✕</button>
+                    <button type="button" class="btn-close-modal" aria-label="Tutup modal pesanan" onclick="tutupModalKasirOrder()">✕</button>
                 </div>
                 <div class="modal-body">
-                    <!-- Informasi Pelanggan & Sumber -->
                     <div class="mt-field">
                         <label for="kasirNamaPelanggan">Nama Pelanggan / No. Order Ojek:</label>
-                        <input type="text" id="kasirNamaPelanggan" class="mt-input" maxlength="35"
-                            placeholder="Contoh: Budi / GF-12345" autocomplete="off">
+                        <input type="text" id="kasirNamaPelanggan" class="mt-input" maxlength="35" placeholder="Contoh: Budi / GF-12345" autocomplete="off">
                     </div>
 
                     <div class="mt-field">
@@ -107,57 +143,44 @@
                         </select>
                     </div>
 
-                    <!-- Pilih Menu -->
                     <div class="mt-field">
                         <label for="kasirPilihMenu">Pilih Menu Utama:</label>
                         <select id="kasirPilihMenu" class="mt-input" onchange="onKasirMenuChange()"></select>
                     </div>
 
-                    <!-- Pilihan Ukuran / Porsi (Dirender Dinamis) -->
                     <div class="mt-field">
                         <label>Pilih Ukuran / Porsi:</label>
                         <div id="kasirUkuranContainer" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
                     </div>
 
-                    <!-- Pilihan Tambahan Opsional (Dirender Dinamis) -->
                     <div class="mt-field">
                         <label>Tambahan Opsional:</label>
                         <div id="kasirAddonContainer" style="display: flex; flex-direction: column; gap: 6px;">
-                            <span style="font-size: 12px; color: var(--text-muted);">Tidak ada tambahan opsional untuk
-                                menu ini.</span>
+                            <span style="font-size: 12px; color: var(--text-muted);">Tidak ada tambahan opsional untuk menu ini.</span>
                         </div>
                     </div>
 
-                    <!-- Jumlah & Tombol Tambah -->
                     <div class="mt-field" style="display: flex; gap: 8px; align-items: flex-end;">
                         <div style="flex: 1;">
                             <label for="kasirQtyItem">Jumlah Porsi:</label>
-                            <input type="number" id="kasirQtyItem" class="mt-input" value="1" min="1" max="99"
-                                style="text-align: center;">
+                            <input type="number" id="kasirQtyItem" class="mt-input" value="1" min="1" max="99" style="text-align: center;">
                         </div>
-                        <button type="button" class="btn-primary-merchant" onclick="tambahItemKeKasirCartCustom()"
-                            style="background: #047857; height: 42px;">+ Masukkan Keranjang</button>
+                        <button type="button" class="btn-primary-merchant" onclick="tambahItemKeKasirCartCustom()" style="background: #047857; height: 42px;">+ Masukkan Keranjang</button>
                     </div>
 
-                    <!-- Daftar Item Terpilih -->
                     <div class="mt-field" style="margin-top: 14px;">
                         <label>Daftar Pesanan:</label>
-                        <ul id="kasirCartList" class="order-item-list"
-                            style="margin-top: 4px; max-height: 140px; overflow-y: auto;">
-                            <li style="font-size: 13px; color: var(--text-muted); text-align: center; padding: 8px;">
-                                Belum ada item dipilih.</li>
+                        <ul id="kasirCartList" class="order-item-list" style="margin-top: 4px; max-height: 140px; overflow-y: auto;">
+                            <li style="font-size: 13px; color: var(--text-muted); text-align: center; padding: 8px;">Belum ada item dipilih.</li>
                         </ul>
                     </div>
 
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-weight: 800;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-weight: 800;">
                         <span>Total Tagihan:</span>
                         <span id="kasirTotalHargaTxt" style="color: var(--primary-red); font-size: 1.1rem;">Rp0</span>
                     </div>
 
-                    <!-- Opsi Pembayaran -->
-                    <div class="mt-field"
-                        style="margin-top: 12px; border-top: 1px dashed var(--border-line); padding-top: 10px;">
+                    <div class="mt-field" style="margin-top: 12px; border-top: 1px dashed var(--border-line); padding-top: 10px;">
                         <label for="kasirMetodeBayar">Metode Pembayaran:</label>
                         <select id="kasirMetodeBayar" class="mt-input" onchange="onChangeKasirMetodeBayar()">
                             <option value="TUNAI">TUNAI / CASH</option>
@@ -168,60 +191,93 @@
 
                     <div id="kasirBoxTunai" class="cash-input-box" style="margin-top: 8px;">
                         <label for="kasirUangDiterima">Uang Diterima (Tunai):</label>
-                        <input type="number" id="kasirUangDiterima" placeholder="Nominal uang tunai..."
-                            oninput="hitungKembalianKasirDirect()">
+                        <input type="number" id="kasirUangDiterima" placeholder="Nominal uang tunai..." oninput="hitungKembalianKasirDirect()">
                         <div id="kasirKembalianTxt" class="kembalian-txt" style="display:none;"></div>
                     </div>
 
                     <div id="kasirMsg" class="mt-msg"></div>
                 </div>
                 <div class="modal-footer" style="display: flex; gap: 8px; margin-top: 14px;">
-                    <button type="button" id="btnProsesKasirOrder" class="btn-primary-merchant"
-                        onclick="prosesSimpanPesananKasir()">Simpan & Kirim ke Dapur</button>
+                    <button type="button" id="btnProsesKasirOrder" class="btn-primary-merchant" onclick="prosesSimpanPesananKasir()">Simpan &amp; Kirim ke Dapur</button>
                     <button type="button" class="btn-outline-merchant" onclick="tutupModalKasirOrder()">Batal</button>
                 </div>
             </div>
         </div>
 
+        <!-- MODAL RETUR PESANAN LUNAS (PB-046) -->
+        <div id="modalReturOrder" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalReturTitle" style="display:none;">
+            <div class="modal-box" style="max-width:440px;">
+                <div class="modal-header">
+                    <h3 id="modalReturTitle">Retur / Batalkan Pesanan Lunas</h3>
+                    <button type="button" class="btn-close-modal" aria-label="Tutup modal retur" onclick="tutupModalRetur()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p id="returOrderSummary" style="font-size:0.875rem; color:var(--text-muted); margin-bottom:10px;"></p>
+                    <div class="mt-field">
+                        <label for="returAlasanInput">Alasan Retur / Pembatalan</label>
+                        <textarea id="returAlasanInput" class="mt-input" rows="2" maxlength="250" placeholder="Contoh: Pembeli membatalkan / salah input pesanan"></textarea>
+                    </div>
+                    <div class="mt-field">
+                        <label for="returNominalInput">Nominal Pengembalian (Rp)</label>
+                        <input type="number" id="returNominalInput" class="mt-input" min="1" step="1">
+                    </div>
+                    <div id="returMsg" class="mt-msg"></div>
+                </div>
+                <div class="modal-footer" style="display:flex; gap:8px; margin-top:14px;">
+                    <button type="button" id="btnKonfirmasiRetur" class="btn-primary-merchant" onclick="prosesReturPesanan()">Konfirmasi Retur</button>
+                    <button type="button" class="btn-outline-merchant" onclick="tutupModalRetur()">Batal</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL LIGHTBOX BUKTI QRIS (PB-069) -->
+        <div id="modalBuktiQris" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Bukti Pembayaran QRIS" style="display:none;" onclick="if(event.target===this)this.style.display='none';">
+            <div class="modal-box" style="max-width:460px; text-align:center;">
+                <div class="modal-header">
+                    <h3>Bukti Pembayaran QRIS</h3>
+                    <button type="button" class="btn-close-modal" aria-label="Tutup pratinjau" onclick="document.getElementById('modalBuktiQris').style.display='none'">✕</button>
+                </div>
+                <div class="modal-body">
+                    <img id="imgBuktiQrisFull" src="" alt="Bukti bayar QRIS" style="max-width:100%; max-height:70vh; border-radius:10px;">
+                </div>
+            </div>
+        </div>
+
         <!-- Bottom Navigation -->
-        <nav class="bottom-nav" aria-label="Navigasi kasir">
-            <button type="button" class="tab-item active" onclick="navigate('dashboard', this)">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    aria-hidden="true">
+        <nav class="bottom-nav" aria-label="Navigasi dashboard">
+            <button type="button" class="tab-item active" data-nav="dashboard" data-role-hide="dapur" onclick="navigate('dashboard', this)">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
                 <span>Stok</span>
             </button>
-            <button type="button" class="tab-item" onclick="navigate('pembayaran', this)">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    aria-hidden="true">
+            <button type="button" class="tab-item" data-nav="pembayaran" data-role-hide="dapur" onclick="navigate('pembayaran', this)">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
                     <line x1="1" y1="10" x2="23" y2="10" />
                 </svg>
                 <span>Bayar</span>
                 <span id="badge-notif-bayar" class="badge-count" style="display:none;">0</span>
             </button>
-            <button type="button" class="tab-item" onclick="navigate('pantau', this)">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    aria-hidden="true">
+            <button type="button" class="tab-item" data-nav="pantau" onclick="navigate('pantau', this)">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
                     <line x1="8" y1="21" x2="16" y2="21" />
                     <line x1="12" y1="17" x2="12" y2="21" />
                 </svg>
                 <span>Dapur</span>
+                <span id="badge-notif-dapur" class="badge-count" style="display:none; background:#1D4ED8;">0</span>
             </button>
-            <button type="button" class="tab-item" onclick="navigate('menu', this)">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    aria-hidden="true">
+            <button type="button" class="tab-item" data-nav="menu" data-role-hide="dapur" onclick="navigate('menu', this)">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                     <line x1="12" y1="8" x2="12" y2="16" />
                     <line x1="8" y1="12" x2="16" y2="12" />
                 </svg>
                 <span>Menu</span>
             </button>
-            <button type="button" class="tab-item" onclick="navigate('riwayat', this)">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    aria-hidden="true">
+            <button type="button" class="tab-item" data-nav="riwayat" data-role-hide="dapur" onclick="navigate('riwayat', this)">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" />
@@ -229,17 +285,23 @@
                 </svg>
                 <span>Riwayat</span>
             </button>
+            <button type="button" class="tab-item" data-nav="kelola" data-role-only="pemilik" onclick="navigate('kelola', this)">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                <span>Kelola</span>
+            </button>
         </nav>
     </div>
 
-    <!-- 1. CDN Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-
-
     <script src="../config.js"></script>
-
-    <!-- 2. Skrip Utama Kasir / Penjual (ES module; fungsi untuk onclick diekspor ke window) -->
+    <script src="../error-messages.js"></script>
+    <script src="../validation.js"></script>
+    <script src="../telemetry.js"></script>
+    <script src="../settings-store.js"></script>
+    <script src="../menu-custom-store.js"></script>
     <script type="module" src="script-penjual.js"></script>
 </body>
 

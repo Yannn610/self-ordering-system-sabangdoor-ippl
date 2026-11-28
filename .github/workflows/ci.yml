@@ -1,0 +1,36 @@
+name: Sabangdor Regression & Syntax CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax check seluruh berkas JavaScript
+        run: |
+          for f in *.js penjual-page/*.js server/*.js tests/*.js; do
+            echo "Checking $f"
+            node --check "$f"
+          done
+
+      - name: Jalankan 60 kasus uji regresi otomatis & buat laporan
+        run: npm test
+
+      - name: Unggah laporan hasil uji
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-test-report
+          path: tests/report.json

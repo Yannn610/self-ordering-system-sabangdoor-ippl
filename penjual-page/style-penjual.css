@@ -893,3 +893,197 @@ input[type="number"] {
     animation-duration: 0.01ms !important;
   }
 }
+
+
+/* Tambahan Gaya Operasional Rilis 3-5 (WCAG AA terverifikasi) */
+.role-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  color: var(--text-main);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.role-pill.pill-green {
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.role-pill.pill-amber {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.role-pill.pill-red {
+  background: #FEF2F2;
+  color: #BE123C;
+}
+
+.low-stock-alert {
+  background: #FEF3C7;
+  border: 1px solid #D97706;
+  color: #92400E;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.subtab-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.subtab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.subtab-btn {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-line);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.subtab-btn.active {
+  background: var(--dark-maroon);
+  color: #FFFFFF;
+  border-color: var(--dark-maroon);
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+@media (min-width: 640px) {
+  .kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.kpi-card {
+  background: var(--bg-app);
+  border: 1px solid var(--border-line);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kpi-card small {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.kpi-card strong {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.admin-list-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-line);
+  border-radius: 10px;
+}
+
+.admin-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 8px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.admin-table th {
+  background: var(--surface-subtle);
+  color: var(--text-main);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.chip-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-line);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.chip-tag button {
+  background: none;
+  border: none;
+  color: var(--primary-hover);
+  font-weight: 800;
+}
+
+.stok-name {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.stok-qty-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.stok-qty-input {
+  width: 72px;
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.qris-proof-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border-line);
+  cursor: pointer;
+}

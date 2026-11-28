@@ -634,3 +634,30 @@ button:focus-visible, input:focus-visible, a:focus-visible, .size-box:focus-visi
         animation-duration: 0.01ms !important;
     }
 }
+
+
+.lang-switcher {
+    display: inline-flex;
+    background: #F1F5F9;
+    border: 1px solid #E2E8F0;
+    border-radius: 999px;
+    padding: 2px;
+}
+
+.lang-toggle-btn {
+    min-width: 32px;
+    min-height: 30px;
+    padding: 2px 7px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.lang-toggle-btn.active {
+    background: #2B1D19;
+    color: #FFFFFF;
+}

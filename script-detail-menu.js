@@ -1,13 +1,18 @@
-// ==========================================
-// HELPER GLOBAL (Mencegah ReferenceError)
-// ==========================================
+/**
+ * File: script-detail-menu.js
+ * Halaman detail menu dinamis & statis Sabangdor:
+ * - PB-047: Merender seluruh menu (bawaan & custom, termasuk Bakpao campur 5 varian) secara dinamis dari DB.
+ * - PB-024: Harga addon Rp0 ditampilkan konsisten, tidak pernah negatif.
+ * - PB-049: Mematuhi stok harian tersisa (membatasi qty maks & menandai habis bila 0).
+ * - PB-072: Dukungan dua bahasa ID/EN.
+ */
 function escHtml(str) {
     if (typeof str !== 'string') return str || '';
     return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
 
 function rupiah(num) {
-    return 'Rp' + Number(num || 0).toLocaleString('id-ID');
+    return 'Rp' + Math.max(0, Math.round(Number(num) || 0)).toLocaleString('id-ID');
 }
 
 const DETAIL_DEFAULT_IMG = (typeof window.DEFAULT_MENU_IMG !== 'undefined' && window.DEFAULT_MENU_IMG)
@@ -24,6 +29,12 @@ function safeImgSrc(src, fallback) {
 }
 
 const MAX_QTY = 99;
+window.__detailMaxQty = MAX_QTY;
+window.__detailBakpaoPacks = [
+    { pcs: 6, price: 36000 },
+    { pcs: 3, price: 20000 },
+    { pcs: 1, price: 7000 }
+];
 
 function tampilkanStatusTutupAtauHabis(alasanTeks, labelTombol) {
     const body = document.getElementById('content-body') || document.querySelector('.content-body');
@@ -44,7 +55,7 @@ function tampilkanStatusTutupAtauHabis(alasanTeks, labelTombol) {
 
 async function cekKetersediaanDetail() {
     if (window.SabangdorSettings) {
-        try { await window.SabangdorSettings.muat(); } catch (e) { /* pakai cache lokal */ }
+        try { await window.SabangdorSettings.muat(); } catch (e) {}
     }
     if (localStorage.getItem('sabangdor_status_toko') === 'tutup') {
         tampilkanStatusTutupAtauHabis('Toko sedang tutup dan belum menerima pesanan saat ini.', 'Toko Tutup');
@@ -66,23 +77,23 @@ async function cekKetersediaanDetail() {
 }
 
 // ==========================================
-// MENU TAMBAHAN: isi halaman detail dibuat otomatis dari data kasir
-// Hanya aktif di detail-menu-custom.html?id=... (butuh menu-custom-store.js).
+// RENDER DINAMIS UNTUK SEMUA MENU (BAWAAN & CUSTOM — PB-047)
 // ==========================================
 window.__detailReady = (async function () {
     const body = document.getElementById('content-body');
-    if (!body || typeof getCustomMenus !== 'function') return;
+    if (!body || typeof window.getAllCatalogMenus !== 'function') return;
 
-    // Ambil data terbaru dari Supabase (agar link langsung / HP lain tetap bisa membuka menu)
     if (typeof window.getCustomMenusFromSupabase === 'function') {
-        try { await window.getCustomMenusFromSupabase(); } catch (e) { /* pakai cache */ }
+        try { await window.getCustomMenusFromSupabase(); } catch (e) {}
     }
     if (window.SabangdorSettings) {
-        try { await window.SabangdorSettings.muat(); } catch (e) { /* abaikan */ }
+        try { await window.SabangdorSettings.muat(); } catch (e) {}
     }
 
     const id = new URLSearchParams(window.location.search).get('id');
-    const menu = getCustomMenus().find(m => String(m.id) === String(id));
+    const allMenus = window.getAllCatalogMenus();
+    const menu = allMenus.find(m => String(m.id) === String(id)) ||
+                 allMenus.find(m => String(m.nama || '').toLowerCase() === String(id || '').toLowerCase());
 
     if (!menu) {
         document.title = 'Menu tidak ditemukan';
@@ -96,25 +107,114 @@ window.__detailReady = (async function () {
         return;
     }
 
-    document.title = 'Detail Menu - ' + menu.nama;
+    document.title = 'Detail Menu - ' + menu.nama + ' | SABANGDOR';
 
-    if (menu.habis) {
+    const stokHabisAngka = menu.stok_harian !== null && menu.stok_harian !== undefined && Number(menu.stok_harian) <= 0;
+    if (menu.habis || stokHabisAngka) {
         body.innerHTML = `
             <div class="section-card">
                 <h3>${escHtml(menu.nama)} sedang habis</h3>
                 <p class="optional-subtitle">Mohon maaf, menu ini sedang tidak tersedia.</p>
             </div>`;
         const btnHabis = document.querySelector('.cart-btn');
-        if (btnHabis) btnHabis.disabled = true;
+        if (btnHabis) {
+            btnHabis.disabled = true;
+            btnHabis.textContent = 'Stok Habis';
+        }
         return;
     }
 
+    // PB-049: Batasi jumlah maksimal sesuai sisa stok harian bila aktif
+    let stokInfoHtml = '';
+    if (menu.stok_harian !== null && menu.stok_harian !== undefined) {
+        const sisa = Math.max(1, Number(menu.stok_harian));
+        window.__detailMaxQty = Math.min(MAX_QTY, sisa);
+        stokInfoHtml = `<p style="margin-top:6px; font-size:0.8125rem; font-weight:700; color:#92400E;">Stok tersedia hari ini: ${sisa} porsi</p>`;
+    }
+
+    const deskripsi = menu.deskripsi ? `<p>${escHtml(menu.deskripsi)}</p>` : '';
+
+    // Khusus menu tipe Bakpao (campur varian & paket hemat dinamis dari DB!)
+    if (menu.tipe_menu === 'bakpao' || String(menu.nama || '').toLowerCase() === 'bakpao') {
+        const uk = Array.isArray(menu.ukuran) ? menu.ukuran : [];
+        let p6 = 36000, p3 = 20000, p1 = 7000;
+        uk.forEach(u => {
+            const n = String(u.nama || '').toLowerCase();
+            if (n.startsWith('6')) p6 = Number(u.harga) || p6;
+            else if (n.startsWith('3')) p3 = Number(u.harga) || p3;
+            else if (n.startsWith('1')) p1 = Number(u.harga) || p1;
+        });
+        window.__detailBakpaoPacks = [
+            { pcs: 6, price: p6 },
+            { pcs: 3, price: p3 },
+            { pcs: 1, price: p1 }
+        ];
+
+        const varians = Array.isArray(menu.varian_bakpao) && menu.varian_bakpao.length
+            ? menu.varian_bakpao
+            : ['Salted Egg', 'Kacang Tanah', 'Ayam Casio', 'Coklat Lumer', 'Keju Susu'];
+
+        body.innerHTML = `
+            <div class="product-banner">
+                <div class="image-wrapper">
+                    <img src="${escHtml(safeImgSrc(menu.img || menu.img_url, DETAIL_DEFAULT_IMG))}" alt="${escHtml(menu.nama)}" width="600" height="360" fetchpriority="high">
+                </div>
+            </div>
+            <div class="product-info">
+                <h2>${escHtml(menu.nama)}</h2>
+                ${deskripsi}
+                ${stokInfoHtml}
+            </div>
+            <section class="section-card">
+                <h3>Harga paket</h3>
+                <div class="size-options" id="package-info">
+                    <div class="size-box info-only"><span class="size-name">1 pcs</span><span class="size-price">${rupiah(p1)}</span></div>
+                    <div class="size-box info-only"><span class="size-name">3 pcs</span><span class="size-price">${rupiah(p3)}</span></div>
+                    <div class="size-box info-only"><span class="size-name">6 pcs</span><span class="size-price">${rupiah(p6)}</span></div>
+                </div>
+                <p class="addon-note">Harga otomatis dihitung paling hemat dari kombinasi paket 6, 3, dan 1 pcs.</p>
+            </section>
+            <section class="section-card">
+                <h3>Pilih varian &amp; jumlah</h3>
+                ${varians.map(v => `
+                    <div class="variant-item" data-name="${escHtml(v)}">
+                        <div class="variant-thumb" aria-hidden="true">${escHtml(String(v).charAt(0).toUpperCase())}</div>
+                        <span class="variant-name">${escHtml(v)}</span>
+                        <div class="qty-controls">
+                            <button type="button" class="qty-btn minus" aria-label="Kurangi ${escHtml(v)}"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
+                            <span class="qty-value">0</span>
+                            <button type="button" class="qty-btn plus" aria-label="Tambah ${escHtml(v)}"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
+                        </div>
+                    </div>
+                `).join('')}
+            </section>
+            <section class="section-card">
+                <h3><label for="detailNoteInput">Catatan (opsional)</label></h3>
+                <div class="note-input-box">
+                    <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                    <input type="text" id="detailNoteInput" maxlength="200" placeholder="Tulis catatan untuk menu ini">
+                </div>
+            </section>
+            <section class="section-card">
+                <h3>Rincian harga</h3>
+                <div id="price-breakdown"><p class="addon-note">Belum ada bakpao dipilih.</p></div>
+                <div class="price-row total-sub">
+                    <span>Subtotal</span>
+                    <span id="subtotal-text">Rp0</span>
+                </div>
+            </section>`;
+        return;
+    }
+
+    // Menu reguler / custom
     const ukuran = menu.ukuran || [];
-    const addon = menu.addon || [];
-    const aktif = ukuran[0];
+    const addon = (menu.addon || []).filter(a => a && String(a.nama || a.name || '').trim() !== '');
+    const defaultIdx = ukuran.findIndex(u => String(u.nama || '').toUpperCase() === 'M');
+    const activeIdx = defaultIdx >= 0 ? defaultIdx : 0;
+    const aktif = ukuran[activeIdx] || ukuran[0];
 
     const ukuranHtml = ukuran.map((u, i) => `
-        <button type="button" class="size-box${i === 0 ? ' active' : ''}" aria-pressed="${i === 0 ? 'true' : 'false'}">
+        <button type="button" class="size-box${i === activeIdx ? ' active' : ''}" aria-pressed="${i === activeIdx ? 'true' : 'false'}">
             <span class="size-name">${escHtml(u.nama)}</span>
             <span class="size-pcs">${escHtml(u.porsi || u.ket || '1 porsi')}</span>
             <span class="size-price">${rupiah(u.harga)}</span>
@@ -126,14 +226,18 @@ window.__detailReady = (async function () {
         const subtitle = menu.gratis
             ? `${escHtml(menu.gratis)} sudah termasuk dalam porsi.`
             : 'Pilih tambahan sesuai selera.';
-        const addonHtml = addon.map(a => `
+        const addonHtml = addon.map(a => {
+            // PB-024: Harga tambahan tidak pernah negatif; 0 tampil "+Rp0"
+            const hargaAddon = Math.max(0, Math.round(Number(a.harga) || 0));
+            return `
             <label class="addon-item">
                 <span class="addon-label">
-                    <span>${escHtml(a.nama)}</span>
-                    <span class="addon-price">+${rupiah(a.harga)}</span>
+                    <span>${escHtml(a.nama || a.name)}</span>
+                    <span class="addon-price">+${rupiah(hargaAddon)}</span>
                 </span>
                 <input type="checkbox" class="checkbox-custom">
-            </label>`).join('');
+            </label>`;
+        }).join('');
 
         tambahanHtml = `
         <section class="section-card">
@@ -146,18 +250,17 @@ window.__detailReady = (async function () {
         </section>`;
     }
 
-    const deskripsi = menu.deskripsi ? `<p>${escHtml(menu.deskripsi)}</p>` : '';
-
     body.innerHTML = `
         <div class="product-banner">
             <div class="image-wrapper">
-                <img src="${escHtml(safeImgSrc(menu.img, DETAIL_DEFAULT_IMG))}" alt="${escHtml(menu.nama)}" width="600" height="360" fetchpriority="high">
+                <img src="${escHtml(safeImgSrc(menu.img || menu.img_url, DETAIL_DEFAULT_IMG))}" alt="${escHtml(menu.nama)}" width="600" height="360" fetchpriority="high">
             </div>
         </div>
 
         <div class="product-info">
             <h2>${escHtml(menu.nama)}</h2>
             ${deskripsi}
+            ${stokInfoHtml}
         </div>
 
         <section class="section-card">
@@ -203,11 +306,18 @@ window.__detailReady = (async function () {
 })();
 
 document.addEventListener('DOMContentLoaded', async function () {
-    // Halaman Bakpao ditangani oleh listener khusus paket Bakpao agar tombol keranjang tidak terpicu ganda
-    if (document.querySelectorAll('.variant-item').length > 0) return;
+    if (window.SabangdorI18n && document.getElementById('langHost')) {
+        window.SabangdorI18n.renderSwitcher('#langHost');
+    }
 
     if (window.__detailReady) {
         try { await window.__detailReady; } catch (e) { console.error(e); }
+    }
+
+    // Jika halaman adalah Bakpao (baik statis maupun dinamis), inisialisasi mode Bakpao
+    if (document.querySelectorAll('.variant-item').length > 0) {
+        await initBakpaoDetail();
+        return;
     }
 
     const sizeBoxes = document.querySelectorAll('.size-box');
@@ -226,14 +336,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     function parseRupiah(text) {
         if (!text) return 0;
-        return parseInt(text.replace(/[^0-9]/g, ''), 10) || 0;
+        return parseInt(String(text).replace(/[^0-9]/g, ''), 10) || 0;
     }
 
-    function formatRupiah(number) {
-        return 'Rp' + number.toLocaleString('id-ID');
-    }
-
-    // Extra Mentai: M = Rp3.000, XL = Rp5.000, tidak tersedia untuk ukuran S
     function sesuaikanAddonMentai() {
         const activeBox = document.querySelector('.size-box.active .size-name');
         const ukuran = activeBox ? activeBox.innerText.trim().toUpperCase() : '';
@@ -261,38 +366,27 @@ document.addEventListener('DOMContentLoaded', async function () {
                 const addonItem = cb.closest('.addon-item');
                 if (addonItem) {
                     const priceText = addonItem.querySelector('.addon-price').innerText;
-                    addonTotal += parseRupiah(priceText);
+                    addonTotal += Math.max(0, parseRupiah(priceText));
                 }
             }
         });
 
-        const pricePerUnit = basePrice + addonTotal;
+        const pricePerUnit = Math.max(0, basePrice + addonTotal);
         const grandTotal = pricePerUnit * currentQty;
 
-        if (qtyValueEl) {
-            qtyValueEl.innerText = `${currentQty} porsi`;
-        }
-
+        if (qtyValueEl) qtyValueEl.innerText = `${currentQty} porsi`;
         if (priceRowSpans.length >= 4) {
-            priceRowSpans[1].innerText = formatRupiah(pricePerUnit);
+            priceRowSpans[1].innerText = rupiah(pricePerUnit);
             priceRowSpans[2].innerText = `Subtotal × ${currentQty} porsi`;
-            priceRowSpans[3].innerText = formatRupiah(grandTotal);
+            priceRowSpans[3].innerText = rupiah(grandTotal);
         }
-
-        if (totalPriceEl) {
-            totalPriceEl.innerText = formatRupiah(grandTotal);
-        }
-        if (footerMetaEl) {
-            footerMetaEl.innerText = `${currentQty} porsi • ${currentPcsText}`;
-        }
-        if (qtyPcsInfoEl) {
-            qtyPcsInfoEl.innerText = `${currentPcsText}/porsi`;
-        }
+        if (totalPriceEl) totalPriceEl.innerText = rupiah(grandTotal);
+        if (footerMetaEl) footerMetaEl.innerText = `${currentQty} porsi • ${currentPcsText}`;
+        if (qtyPcsInfoEl) qtyPcsInfoEl.innerText = `${currentPcsText}/porsi`;
     }
 
     function initActiveSize() {
         if (sizeBoxes.length === 0) return;
-
         const activeBox = document.querySelector('.size-box.active') || sizeBoxes[0];
         if (activeBox) {
             const priceEl = activeBox.querySelector('.size-price');
@@ -317,28 +411,19 @@ document.addEventListener('DOMContentLoaded', async function () {
             });
             box.classList.add('active');
             box.setAttribute('aria-pressed', 'true');
-
             const priceEl = box.querySelector('.size-price');
             const pcsEl = box.querySelector('.size-pcs');
             if (priceEl) basePrice = parseRupiah(priceEl.innerText);
             if (pcsEl) currentPcsText = pcsEl.innerText;
-
             updateCalculations();
         };
         box.addEventListener('click', selectSize);
-        if (box.tagName !== 'BUTTON' && !box.classList.contains('info-only')) {
-            box.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    selectSize();
-                }
-            });
-        }
     });
 
     if (plusBtn) {
         plusBtn.addEventListener('click', function () {
-            if (currentQty < MAX_QTY) {
+            const limit = Math.min(MAX_QTY, window.__detailMaxQty || MAX_QTY);
+            if (currentQty < limit) {
                 currentQty++;
                 updateCalculations();
             }
@@ -354,15 +439,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
     }
 
-    checkboxes.forEach(cb => {
-        cb.addEventListener('change', function () {
-            updateCalculations();
-        });
-    });
+    checkboxes.forEach(cb => cb.addEventListener('change', updateCalculations));
 
     initActiveSize();
     updateCalculations();
-    const tersedia = await cekKetersediaanDetail();
+    await cekKetersediaanDetail();
 
     const cartBtn = document.querySelector('.cart-btn');
     if (cartBtn) {
@@ -370,16 +451,14 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (cartBtn.disabled) return;
             const productTitleEl = document.querySelector('.product-info h2');
             if (!productTitleEl) return;
-            const namaProduk = productTitleEl.innerText;
-
+            const namaProduk = productTitleEl.innerText.trim();
             const productImageEl = document.querySelector('.product-banner img');
             const produkImgSrc = productImageEl ? productImageEl.src : '';
-
             const activeSizeBox = document.querySelector('.size-box.active');
             const ukuranPorsi = activeSizeBox ? activeSizeBox.querySelector('.size-name').innerText : 'M';
             const pcsInfo = activeSizeBox ? activeSizeBox.querySelector('.size-pcs').innerText : '6 pcs';
 
-            let daftarAddon = [];
+            const daftarAddon = [];
             checkboxes.forEach(cb => {
                 if (cb.checked) {
                     const addonItem = cb.closest('.addon-item');
@@ -391,22 +470,19 @@ document.addEventListener('DOMContentLoaded', async function () {
             });
 
             const inputCatatan = document.querySelector('.note-input-box input');
-            const catatanTeks = inputCatatan ? inputCatatan.value.trim() : '';
-
-            const totalHargaText = totalPriceEl ? totalPriceEl.innerText : 'Rp26.000';
+            const catatanTeks = inputCatatan ? inputCatatan.value.trim().slice(0, 200) : '';
+            const totalHargaText = totalPriceEl ? totalPriceEl.innerText : 'Rp0';
             const hargaAngka = parseRupiah(totalHargaText);
-            const jumlahPorsi = currentQty || 1;
+            if (hargaAngka <= 0) return;
 
             let detailVarianText = `${ukuranPorsi} (${pcsInfo})`;
-            if (daftarAddon.length > 0) {
-                detailVarianText += ` + ${daftarAddon.join(', ')}`;
-            }
+            if (daftarAddon.length > 0) detailVarianText += ` + ${daftarAddon.join(', ')}`;
 
             const itemBaru = {
                 nama: namaProduk,
                 varian: detailVarianText,
                 catatan: catatanTeks,
-                qty: jumlahPorsi,
+                qty: currentQty || 1,
                 harga: hargaAngka,
                 hargaFormatted: totalHargaText,
                 imgSrc: produkImgSrc
@@ -421,18 +497,17 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             localStorage.setItem('sabangdor_cart', JSON.stringify(keranjang));
             localStorage.setItem('buka_popup_keranjang', 'true');
-
+            if (window.SabangdorTelemetry) window.SabangdorTelemetry.trackEvent('add_to_cart', { item: namaProduk });
             window.location.href = 'index.html';
         });
     }
 });
 
-// Logika paket hemat Bakpao
-document.addEventListener('DOMContentLoaded', async function () {
+async function initBakpaoDetail() {
     const variantItems = document.querySelectorAll('.variant-item');
     if (variantItems.length === 0) return;
 
-    const PACKS = [
+    const PACKS = window.__detailBakpaoPacks || [
         { pcs: 6, price: 36000 },
         { pcs: 3, price: 20000 },
         { pcs: 1, price: 7000 }
@@ -443,16 +518,11 @@ document.addEventListener('DOMContentLoaded', async function () {
     const totalPriceEl = document.querySelector('.total-price');
     const footerMetaEl = document.getElementById('footer-meta-text');
     const cartBtn = document.querySelector('.cart-btn');
-
     if (!cartBtn) return;
 
     let bakpaoTersedia = true;
     const qty = {};
     variantItems.forEach(item => { qty[item.dataset.name] = 0; });
-
-    function formatRupiah(n) {
-        return 'Rp' + n.toLocaleString('id-ID');
-    }
 
     function bestPrice(n) {
         const cost = [0];
@@ -473,9 +543,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (p) {
                 used[p.pcs] = (used[p.pcs] || 0) + 1;
                 i -= p.pcs;
-            } else {
-                break;
-            }
+            } else break;
         }
         return { total: cost[n], used };
     }
@@ -494,39 +562,36 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         if (totalPcs === 0) {
             if (breakdownEl) breakdownEl.innerHTML = '<p class="addon-note">Belum ada bakpao dipilih.</p>';
-            if (subtotalEl) subtotalEl.innerText = formatRupiah(0);
-            if (totalPriceEl) totalPriceEl.innerText = formatRupiah(0);
+            if (subtotalEl) subtotalEl.innerText = rupiah(0);
+            if (totalPriceEl) totalPriceEl.innerText = rupiah(0);
             if (footerMetaEl) footerMetaEl.innerText = 'Belum ada bakpao dipilih';
-            if (cartBtn) cartBtn.disabled = true;
+            cartBtn.disabled = true;
             return;
         }
 
         const { total, used } = bestPrice(totalPcs);
-
         let html = '';
         PACKS.forEach(p => {
             if (used[p.pcs]) {
-                const totalPackPrice = p.price * used[p.pcs];
-                html += `<div class="price-row"><span>Paket ${p.pcs} pcs × ${used[p.pcs]}</span><span>${formatRupiah(totalPackPrice)}</span></div>`;
+                html += `<div class="price-row"><span>Paket ${p.pcs} pcs × ${used[p.pcs]}</span><span>${rupiah(p.price * used[p.pcs])}</span></div>`;
             }
         });
         if (breakdownEl) breakdownEl.innerHTML = html;
-
-        if (subtotalEl) subtotalEl.innerText = formatRupiah(total);
-        if (totalPriceEl) totalPriceEl.innerText = formatRupiah(total);
+        if (subtotalEl) subtotalEl.innerText = rupiah(total);
+        if (totalPriceEl) totalPriceEl.innerText = rupiah(total);
         if (footerMetaEl) footerMetaEl.innerText = `${totalPcs} pcs bakpao`;
-        if (cartBtn) cartBtn.disabled = !bakpaoTersedia;
+        cartBtn.disabled = !bakpaoTersedia;
     }
 
     variantItems.forEach(item => {
         const name = item.dataset.name;
         const plusBtn = item.querySelector('.plus');
         const minusBtn = item.querySelector('.minus');
-
         if (plusBtn) {
             plusBtn.addEventListener('click', () => {
+                const limit = Math.min(MAX_QTY, window.__detailMaxQty || MAX_QTY);
                 const totalSaatIni = Object.values(qty).reduce((s, v) => s + v, 0);
-                if (totalSaatIni >= MAX_QTY) return;
+                if (totalSaatIni >= limit) return;
                 qty[name] = (qty[name] || 0) + 1;
                 render();
             });
@@ -541,61 +606,52 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     });
 
-    if (cartBtn) {
-        cartBtn.addEventListener('click', function () {
-            if (cartBtn.disabled || !bakpaoTersedia) return;
-            const picked = Object.keys(qty).filter(n => qty[n] > 0);
-            if (picked.length === 0) return;
+    cartBtn.addEventListener('click', function () {
+        if (cartBtn.disabled || !bakpaoTersedia) return;
+        const picked = Object.keys(qty).filter(n => qty[n] > 0);
+        if (picked.length === 0) return;
 
-            const totalPcs = picked.reduce((s, n) => s + qty[n], 0);
-            const varian = picked.map(n => `${qty[n]}x ${n}`).join(', ');
-            const totalText = totalPriceEl ? totalPriceEl.innerText : 'Rp0';
-            const imgEl = document.querySelector('.product-banner img');
-            const noteInput = document.querySelector('.note-input-box input');
-            const catatan = noteInput ? noteInput.value.trim().slice(0, 200) : '';
+        const totalPcs = picked.reduce((s, n) => s + qty[n], 0);
+        const varian = picked.map(n => `${qty[n]}x ${n}`).join(', ');
+        const totalText = totalPriceEl ? totalPriceEl.innerText : 'Rp0';
+        const imgEl = document.querySelector('.product-banner img');
+        const noteInput = document.querySelector('.note-input-box input');
+        const catatan = noteInput ? noteInput.value.trim().slice(0, 200) : '';
 
-            const itemBaru = {
-                nama: 'Bakpao',
-                varian: `${totalPcs} pcs: ${varian}`,
-                catatan: catatan,
-                qty: 1,
-                harga: parseInt(totalText.replace(/[^0-9]/g, ''), 10) || 0,
-                hargaFormatted: totalText,
-                imgSrc: imgEl ? imgEl.src : ''
-            };
+        const itemBaru = {
+            nama: 'Bakpao',
+            varian: `${totalPcs} pcs: ${varian}`,
+            catatan: catatan,
+            qty: 1,
+            harga: parseInt(totalText.replace(/[^0-9]/g, ''), 10) || 0,
+            hargaFormatted: totalText,
+            imgSrc: imgEl ? imgEl.src : ''
+        };
 
-            let keranjang = [];
-            try {
-                const parsed = JSON.parse(localStorage.getItem('sabangdor_cart'));
-                if (Array.isArray(parsed)) keranjang = parsed;
-            } catch (e) {}
-            keranjang.push(itemBaru);
-            localStorage.setItem('sabangdor_cart', JSON.stringify(keranjang));
-            localStorage.setItem('buka_popup_keranjang', 'true');
-
-            window.location.href = 'index.html';
-        });
-    }
+        let keranjang = [];
+        try {
+            const parsed = JSON.parse(localStorage.getItem('sabangdor_cart'));
+            if (Array.isArray(parsed)) keranjang = parsed;
+        } catch (e) {}
+        keranjang.push(itemBaru);
+        localStorage.setItem('sabangdor_cart', JSON.stringify(keranjang));
+        localStorage.setItem('buka_popup_keranjang', 'true');
+        if (window.SabangdorTelemetry) window.SabangdorTelemetry.trackEvent('add_to_cart', { item: 'Bakpao' });
+        window.location.href = 'index.html';
+    });
 
     render();
     bakpaoTersedia = await cekKetersediaanDetail();
-    if (!bakpaoTersedia && cartBtn) cartBtn.disabled = true;
-});
+    if (!bakpaoTersedia) cartBtn.disabled = true;
+}
 
-// EVENT LISTENER TOMBOL KEMBALI
 document.addEventListener('DOMContentLoaded', function () {
     const backBtn = document.querySelector('.back-btn');
     if (!backBtn) return;
-
     backBtn.addEventListener('click', function () {
         const cameFromSameSite = document.referrer &&
             new URL(document.referrer).origin === window.location.origin;
-
-        if (window.history.length > 1 && cameFromSameSite) {
-            window.history.back();
-        } else {
-            window.location.href = 'index.html';
-        }
+        if (window.history.length > 1 && cameFromSameSite) window.history.back();
+        else window.location.href = 'index.html';
     });
-}); 
-
+});

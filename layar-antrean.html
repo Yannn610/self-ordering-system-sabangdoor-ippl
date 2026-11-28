@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2B1D19">
+    <link rel="manifest" href="manifest.webmanifest">
+    <title>Layar Antrean Publik - SABANGDOR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style-layar-antrean.css">
+</head>
+<body>
+    <header class="queue-header">
+        <div class="queue-brand">
+            <span>SABANGDOR OUTLET</span>
+            <h1>Layar Antrean Pesanan</h1>
+        </div>
+        <div class="queue-meta">
+            <span id="liveStatusPill" class="live-pill polling">Sinkronisasi...</span>
+            <span id="queueClock" class="queue-clock" aria-live="off">--:--</span>
+            <button type="button" id="btnSoundToggle" class="queue-btn" aria-pressed="false">Suara: Mati</button>
+            <button type="button" id="btnFullscreen" class="queue-btn">Layar Penuh</button>
+        </div>
+    </header>
+
+    <main class="queue-grid">
+        <section class="queue-panel" aria-label="Pesanan sedang disiapkan">
+            <div class="panel-head">
+                <h2>Sedang Disiapkan</h2>
+                <span id="preparingCount" class="panel-count">0</span>
+            </div>
+            <div id="preparingList" class="numbers-grid">
+                <p class="queue-empty">Belum ada pesanan diproses.</p>
+            </div>
+        </section>
+
+        <section class="queue-panel ready-panel" aria-label="Pesanan siap diambil">
+            <div class="panel-head">
+                <h2>Siap Diambil di Kasir</h2>
+                <span id="readyCount" class="panel-count">0</span>
+            </div>
+            <div id="readyList" class="numbers-grid">
+                <p class="queue-empty">Belum ada pesanan siap diambil.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="queue-footer">
+        Silakan tunjukkan nomor antrean Anda di konter pengambilan saat nomor tampil di kolom hijau.
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="script-layar-antrean.js"></script>
+</body>
+</html>

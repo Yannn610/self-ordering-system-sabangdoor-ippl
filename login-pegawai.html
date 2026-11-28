@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#E11D48">
+    <link rel="manifest" href="manifest.webmanifest">
     <title>SABANGDOR - Login Pegawai</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,19 +18,29 @@
     <header class="login-header">
         <span class="login-brand">SABANGDOR</span>
         <h1>Login Pegawai</h1>
-        <p>Akses khusus kasir dan dapur outlet</p>
+        <p>Akses khusus pemilik, kasir, dan dapur outlet</p>
     </header>
 
     <section class="login-card-box" aria-label="Formulir masuk pegawai">
-        <form id="loginForm">
-            <div class="login-field-group">
-                <label for="email">Email Pegawai</label>
-                <input type="email" id="email" class="login-input-text" placeholder="nama@sabangdor.com" required autocomplete="username">
+        <form id="loginForm" novalidate>
+            <div id="loginStepCredentials">
+                <div class="login-field-group">
+                    <label for="email">Email Pegawai</label>
+                    <input type="email" id="email" class="login-input-text" placeholder="nama@sabangdor.com" required autocomplete="username">
+                </div>
+
+                <div class="login-field-group">
+                    <label for="password">Kata Sandi</label>
+                    <input type="password" id="password" class="login-input-text" required autocomplete="current-password">
+                </div>
             </div>
 
-            <div class="login-field-group">
-                <label for="password">Kata Sandi</label>
-                <input type="password" id="password" class="login-input-text" required autocomplete="current-password">
+            <!-- PB-067: Langkah Verifikasi 2FA (TOTP) bila akun mengaktifkan MFA -->
+            <div id="loginStepMfa" style="display:none;">
+                <div class="login-field-group">
+                    <label for="mfaCode">Kode Verifikasi 2FA (6 digit Authenticator)</label>
+                    <input type="text" id="mfaCode" class="login-input-text" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="000000" autocomplete="one-time-code">
+                </div>
             </div>
 
             <p id="errorMessage" class="login-error-msg" role="alert"></p>
@@ -42,6 +54,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="error-messages.js"></script>
+<script src="validation.js"></script>
+<script src="telemetry.js"></script>
 <script src="penjual-page/login.js"></script>
 
 </body>

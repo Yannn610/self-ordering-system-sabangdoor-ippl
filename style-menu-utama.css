@@ -761,3 +761,96 @@ input[type="checkbox"], input[type="radio"], input[type="submit"], input[type="b
         animation-duration: 0.01ms !important;
     }
 }
+
+
+/* Header Utility Bar, Language Switcher (PB-072), PWA Pill (PB-053), Low Stock Badge (PB-049) */
+.header-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.header-utility-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.util-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-line);
+    background: var(--card-bg);
+    color: var(--text-main);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.util-pill:hover {
+    background: var(--surface-subtle);
+    border-color: #CBD5E1;
+}
+
+.util-pill--accent {
+    background: var(--red-tint);
+    border-color: #FECDD3;
+    color: var(--primary-hover);
+}
+
+.util-pill--accent:hover {
+    background: var(--primary-red);
+    border-color: var(--primary-red);
+    color: #FFFFFF;
+}
+
+.lang-switcher {
+    display: inline-flex;
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-line);
+    border-radius: 999px;
+    padding: 2px;
+}
+
+.lang-toggle-btn {
+    min-width: 34px;
+    min-height: 32px;
+    padding: 2px 8px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.lang-toggle-btn.active {
+    background: var(--dark-maroon);
+    color: #FFFFFF;
+}
+
+.stock-low-pill {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #FEF3C7;
+    color: #92400E;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    vertical-align: middle;
+}
+
+.card-title {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}

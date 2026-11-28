@@ -1,0 +1,311 @@
+{
+  "generated_at": "2026-11-28T12:53:44.578Z",
+  "started_at": "2026-11-28T12:53:42.895Z",
+  "node_version": "v26.13.1",
+  "total": 60,
+  "passed": 60,
+  "failed": 0,
+  "success": true,
+  "cases": [
+    {
+      "index": 1,
+      "status": "PASS",
+      "name": "L-01: Login menolak email kosong"
+    },
+    {
+      "index": 2,
+      "status": "PASS",
+      "name": "L-02: Login menolak email hanya spasi"
+    },
+    {
+      "index": 3,
+      "status": "PASS",
+      "name": "L-03: Login menolak format email tidak valid"
+    },
+    {
+      "index": 4,
+      "status": "PASS",
+      "name": "L-04: Login menolak kata sandi kosong"
+    },
+    {
+      "index": 5,
+      "status": "PASS",
+      "name": "L-05: Login menerima kredensial format valid"
+    },
+    {
+      "index": 6,
+      "status": "PASS",
+      "name": "L-06 (PB-030 / O-01): Galat kredensial Supabase diterjemahkan ke bahasa Indonesia"
+    },
+    {
+      "index": 7,
+      "status": "PASS",
+      "name": "L-07 (PB-030 / O-01): Galat jaringan diterjemahkan tanpa detail teknis"
+    },
+    {
+      "index": 8,
+      "status": "PASS",
+      "name": "L-08 (PB-030): Galat sesi JWT habis diterjemahkan ramah"
+    },
+    {
+      "index": 9,
+      "status": "PASS",
+      "name": "L-09 (PB-067): Kebijakan kata sandi menolak < 10 karakter atau tanpa angka"
+    },
+    {
+      "index": 10,
+      "status": "PASS",
+      "name": "L-10 (PB-067): Kebijakan kata sandi menerima >= 10 karakter huruf + angka"
+    },
+    {
+      "index": 11,
+      "status": "PASS",
+      "name": "C-01: Checkout menolak nama kosong"
+    },
+    {
+      "index": 12,
+      "status": "PASS",
+      "name": "C-02: Checkout menolak nama hanya spasi"
+    },
+    {
+      "index": 13,
+      "status": "PASS",
+      "name": "C-03 (PB-028 / F-03): Checkout menolak nama > 50 karakter"
+    },
+    {
+      "index": 14,
+      "status": "PASS",
+      "name": "C-04 (PB-028): Checkout menerima nama tepat 50 karakter"
+    },
+    {
+      "index": 15,
+      "status": "PASS",
+      "name": "C-05 (PB-023): Payload XSS <script> pada nama di-escape sempurna"
+    },
+    {
+      "index": 16,
+      "status": "PASS",
+      "name": "C-06 (PB-023): Payload XSS atribut onerror di-escape sempurna"
+    },
+    {
+      "index": 17,
+      "status": "PASS",
+      "name": "C-07 (PB-038): Checkout menolak nama 1 huruf"
+    },
+    {
+      "index": 18,
+      "status": "PASS",
+      "name": "C-08 (PB-038): Checkout menerima nama 2 huruf"
+    },
+    {
+      "index": 19,
+      "status": "PASS",
+      "name": "C-09 (PB-038 / O-02): Checkout menolak nama hanya angka"
+    },
+    {
+      "index": 20,
+      "status": "PASS",
+      "name": "C-10 (PB-038 / O-02): Checkout menolak nama hanya simbol"
+    },
+    {
+      "index": 21,
+      "status": "PASS",
+      "name": "C-11 (PB-038): Checkout menerima nama dengan kombinasi huruf & angka (mis. Meja 2 Budi)"
+    },
+    {
+      "index": 22,
+      "status": "PASS",
+      "name": "C-12 (PB-035): Rate limiter perangkat mengizinkan 3 pesanan pertama dan memblokir ke-4 dalam 5 menit"
+    },
+    {
+      "index": 23,
+      "status": "PASS",
+      "name": "C-13 (PB-035): Rate limiter pulih otomatis setelah jendela 5 menit berakhir"
+    },
+    {
+      "index": 24,
+      "status": "PASS",
+      "name": "C-14 (PB-035): Tantangan verifikasi manusia menolak jawaban salah & honeypot terisi"
+    },
+    {
+      "index": 25,
+      "status": "PASS",
+      "name": "C-15 (PB-003 / PB-027): Perhitungan paket optimal Bakpao 1..12 pcs akurat"
+    },
+    {
+      "index": 26,
+      "status": "PASS",
+      "name": "C-16 (PB-066): Perhitungan diskon voucher persen (dengan cap maks_diskon) & nominal"
+    },
+    {
+      "index": 27,
+      "status": "PASS",
+      "name": "C-17 (PB-074): Normalisasi & validasi nomor HP opsional untuk poin loyalitas"
+    },
+    {
+      "index": 28,
+      "status": "PASS",
+      "name": "C-18 (PB-068): Ulasan menolak komentar kosong & rating di luar 1-5"
+    },
+    {
+      "index": 29,
+      "status": "PASS",
+      "name": "M-01: Menu menolak nama kosong"
+    },
+    {
+      "index": 30,
+      "status": "PASS",
+      "name": "M-02: Menu menolak nama hanya spasi"
+    },
+    {
+      "index": 31,
+      "status": "PASS",
+      "name": "M-03: Menu menolak tanpa ukuran sama sekali"
+    },
+    {
+      "index": 32,
+      "status": "PASS",
+      "name": "M-04: Menu menolak harga ukuran 0"
+    },
+    {
+      "index": 33,
+      "status": "PASS",
+      "name": "M-05: Menu menolak harga ukuran negatif"
+    },
+    {
+      "index": 34,
+      "status": "PASS",
+      "name": "M-06: Menu menolak kategori baru kosong saat opsi kategori baru dipilih"
+    },
+    {
+      "index": 35,
+      "status": "PASS",
+      "name": "M-07: Menu menerima kategori baru valid"
+    },
+    {
+      "index": 36,
+      "status": "PASS",
+      "name": "M-08 (PB-025 / F-02): Menu menolak harga ukuran melebihi Rp1.000.000"
+    },
+    {
+      "index": 37,
+      "status": "PASS",
+      "name": "M-09 (PB-039 / O-04): Menu menolak harga desimal / bukan bilangan bulat Rupiah"
+    },
+    {
+      "index": 38,
+      "status": "PASS",
+      "name": "M-10 (PB-024 / F-01): Menu menolak harga tambahan opsional negatif"
+    },
+    {
+      "index": 39,
+      "status": "PASS",
+      "name": "M-11 (PB-039 / O-03): Menu menampilkan peringatan bila baris tambahan tanpa nama"
+    },
+    {
+      "index": 40,
+      "status": "PASS",
+      "name": "M-12 (PB-024): Menu menerima tambahan opsional gratis (harga 0)"
+    },
+    {
+      "index": 41,
+      "status": "PASS",
+      "name": "M-13 (PB-023): XSS pada nama menu di-escape saat render HTML"
+    },
+    {
+      "index": 42,
+      "status": "PASS",
+      "name": "M-14 (PB-023): XSS pada nama tambahan di-escape saat render HTML"
+    },
+    {
+      "index": 43,
+      "status": "PASS",
+      "name": "M-15 (PB-029 / F-04): Menu menolak nama menu > 60 karakter"
+    },
+    {
+      "index": 44,
+      "status": "PASS",
+      "name": "M-16 (PB-029): Menu menerima nama menu tepat 60 karakter"
+    },
+    {
+      "index": 45,
+      "status": "PASS",
+      "name": "M-17 (PB-031 / F-05): Menu menolak nama duplikat tak peka huruf besar/kecil"
+    },
+    {
+      "index": 46,
+      "status": "PASS",
+      "name": "M-18 (PB-031 / F-06): Menu baru menolak nama yang bentrok dengan menu bawaan"
+    },
+    {
+      "index": 47,
+      "status": "PASS",
+      "name": "M-19 (PB-047): Mengedit menu bawaan yang sedang aktif (isEditingBuiltin=true) diizinkan"
+    },
+    {
+      "index": 48,
+      "status": "PASS",
+      "name": "M-20 (PB-030): Galat unique constraint PG 23505 diterjemahkan tanpa bocor detail DB"
+    },
+    {
+      "index": 49,
+      "status": "PASS",
+      "name": "F-01 (PB-083 / PB-054): Apriori menyaring add-on dari rekomendasi populer & menghitung cross-sell"
+    },
+    {
+      "index": 50,
+      "status": "PASS",
+      "name": "F-02 (PB-049): Validasi stok harian menolak stok negatif dan desimal"
+    },
+    {
+      "index": 51,
+      "status": "PASS",
+      "name": "F-03 (PB-072): Kamus i18n ID & EN memiliki kunci yang sinkron"
+    },
+    {
+      "index": 52,
+      "status": "PASS",
+      "name": "F-04 (PB-030 + PB-072): Error messages mendukung terjemahan bahasa Inggris"
+    },
+    {
+      "index": 53,
+      "status": "PASS",
+      "name": "F-05 (PB-032): Berkas warisan duplikat config/supabaseClient.js sudah dihapus"
+    },
+    {
+      "index": 54,
+      "status": "PASS",
+      "name": "F-06 (PB-053): Berkas PWA manifest.webmanifest dan sw.js tersedia dan valid JSON"
+    },
+    {
+      "index": 55,
+      "status": "PASS",
+      "name": "F-07 (PB-044 / PB-051 / PB-071): Halaman baru status-pesanan, layar-antrean, riwayat-pembeli tersedia"
+    },
+    {
+      "index": 56,
+      "status": "PASS",
+      "name": "F-08 (PB-055 / PB-058): Modul analitik menghitung omzet kotor, diskon, retur, AOV, menu terlaris"
+    },
+    {
+      "index": 57,
+      "status": "PASS",
+      "name": "F-09 (PB-073): Generator ESC/POS thermal 58mm menghasilkan byte valid untuk struk & tiket dapur"
+    },
+    {
+      "index": 58,
+      "status": "PASS",
+      "name": "F-10 (PB-076): Antrean POS offline menyimpan & menyinkronkan dengan client_tx_id tanpa duplikat"
+    },
+    {
+      "index": 59,
+      "status": "PASS",
+      "name": "F-11 (PB-064): Evaluasi jadwal operasional menghormati hari libur dan override manual"
+    },
+    {
+      "index": 60,
+      "status": "PASS",
+      "name": "F-12 (SQL): Migrasi terpadu supabase/migration_v2_lengkap.sql memuat seluruh fungsi RPC & tabel v2"
+    }
+  ]
+}

@@ -1,4 +1,11 @@
 {
+  "name": "sabangdor-self-ordering",
+  "version": "2.0.0",
+  "description": "Sistem pemesanan mandiri & dashboard POS Sabangdor",
+  "scripts": {
+    "test": "node tests/run-with-report.js",
+    "test:node": "node --test tests/regression.test.js"
+  },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0"

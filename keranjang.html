@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#ffffff" />
+  <meta name="theme-color" content="#E11D48" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <title>SABANGDOR - Keranjang</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,47 +20,48 @@
           <path d="M15 18l-6-6 6-6" />
         </svg>
       </button>
-      <h1>Keranjang</h1>
+      <h1 data-i18n="cart_title">Keranjang</h1>
+      <div id="langHost" style="margin-left:auto;"></div>
     </header>
 
     <main class="app-body">
       <div class="outlet-info">
         <div>
           <p class="outlet-name">SABANGDOR</p>
-          <p class="outlet-sub">Ambil di outlet</p>
+          <p class="outlet-sub" data-i18n="pickup_at_outlet">Ambil di outlet</p>
         </div>
-        <button id="clearBtn" class="link-btn" type="button">Kosongkan</button>
+        <button id="clearBtn" class="link-btn" type="button" data-i18n="btn_clear">Kosongkan</button>
       </div>
 
       <div class="cart-layout">
         <div class="cart-main-col">
           <section class="card">
-            <h2 class="card-title">Pesanan kamu</h2>
-            <p class="card-sub">Cek lagi jumlah pesananmu sebelum lanjut.</p>
+            <h2 class="card-title" data-i18n="your_order">Pesanan kamu</h2>
+            <p class="card-sub" data-i18n="cart_sub">Cek lagi jumlah pesananmu sebelum lanjut.</p>
 
             <ul id="cartList" class="item-list"></ul>
 
             <div id="cartEmpty" class="empty" hidden>
-              <p class="empty-title">Keranjang masih kosong</p>
-              <p class="empty-sub">Tambahkan menu dulu untuk mulai memesan.</p>
-              <button id="emptyBackBtn" class="btn-outline" type="button">Pilih menu</button>
+              <p class="empty-title" data-i18n="cart_empty_title">Keranjang masih kosong</p>
+              <p class="empty-sub" data-i18n="cart_empty_sub">Tambahkan menu dulu untuk mulai memesan.</p>
+              <button id="emptyBackBtn" class="btn-outline" type="button" data-i18n="btn_pick_menu">Pilih menu</button>
             </div>
           </section>
 
           <section id="aiRecCard" class="card" hidden>
-            <h2 class="card-title">Pelengkap yang cocok</h2>
-            <p class="card-sub">Pelanggan lain sering memesan menu ini bersamaan:</p>
+            <h2 class="card-title" data-i18n="cross_sell_title">Pelengkap yang cocok</h2>
+            <p class="card-sub" data-i18n="cross_sell_sub">Pelanggan lain sering memesan menu ini bersamaan:</p>
             <div id="aiRecList" class="ai-rec-list"></div>
           </section>
         </div>
 
         <section id="summary" class="card summary">
           <div class="summary-row">
-            <span>Jumlah item</span>
-            <span id="cartCount">0 item</span>
+            <span data-i18n="item_count">Jumlah item</span>
+            <span id="cartCount">0 porsi</span>
           </div>
           <div class="summary-row">
-            <span>Subtotal</span>
+            <span data-i18n="subtotal">Subtotal</span>
             <span id="cartSubtotal">Rp0</span>
           </div>
         </section>
@@ -68,10 +70,10 @@
 
     <footer class="bottom-bar">
       <div class="total-row">
-        <span class="total-label">Total</span>
+        <span class="total-label" data-i18n="total">Total</span>
         <span id="cartTotal" class="total-value">Rp0</span>
       </div>
-      <button id="checkoutBtn" class="btn-primary" type="button">Pesan sekarang</button>
+      <button id="checkoutBtn" class="btn-primary" type="button" data-i18n="btn_order_now">Pesan sekarang</button>
     </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -79,7 +81,11 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
+  <script src="i18n.js"></script>
+  <script src="error-messages.js"></script>
+  <script src="telemetry.js"></script>
   <script src="settings-store.js"></script>
+  <script src="menu-custom-store.js"></script>
   <script src="apriori_recommendation.js"></script>
   <script src="script-keranjang.js"></script>
 </body>

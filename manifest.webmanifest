@@ -1,0 +1,40 @@
+{
+  "name": "SABANGDOR - Self-Ordering & Outlet POS",
+  "short_name": "SABANGDOR",
+  "description": "Pesan dimsum mentai dan bakpao favoritmu langsung dari HP dan ambil di outlet.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F8F9FA",
+  "theme_color": "#E11D48",
+  "lang": "id",
+  "icons": [
+    {
+      "src": "assets/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Pesan Menu",
+      "url": "./index.html"
+    },
+    {
+      "name": "Riwayat Pesanan",
+      "url": "./riwayat-pembeli.html"
+    },
+    {
+      "name": "Dashboard Kasir",
+      "url": "./login-pegawai.html"
+    }
+  ]
+}
